@@ -20,6 +20,8 @@ _total_download_speed: int = 0
 _total_download_size: int = 0
 _last_download_time: float = time.time()
 _download_state: DownloadState = DownloadState.Downloading
+_paused_tasks: set = set()
+_failed_downloads: list = []
 
 
 def get_download_result() -> dict:
@@ -44,6 +46,82 @@ def set_download_state(state: DownloadState):
     _download_state = state
 
 
+def is_task_paused(task_id) -> bool:
+    """Check if a specific task is paused"""
+    return str(task_id) in _paused_tasks
+
+
+def pause_task(task_id) -> bool:
+    """Pause a specific download task by task_id"""
+    _paused_tasks.add(str(task_id))
+    return True
+
+
+def resume_task(task_id) -> bool:
+    """Resume a specific download task by task_id"""
+    task_id_str = str(task_id)
+    if task_id_str in _paused_tasks:
+        _paused_tasks.discard(task_id_str)
+        return True
+    return False
+
+
+def delete_task(task_id) -> bool:
+    """Delete a specific task from download results by task_id"""
+    task_id_str = str(task_id)
+    for chat_id, messages in list(_download_result.items()):
+        for msg_id, value in list(messages.items()):
+            if str(value.get("task_id", "")) == task_id_str:
+                del _download_result[chat_id][msg_id]
+                if not _download_result[chat_id]:
+                    del _download_result[chat_id]
+                return True
+    return False
+
+
+def add_failed_download(chat_id, msg_id, task_id, file_name, error_message, total_size=0):
+    """Track a failed download"""
+    # Remove existing entry with same task_id
+    global _failed_downloads
+    _failed_downloads = [
+        f for f in _failed_downloads if str(f.get("task_id", "")) != str(task_id)
+    ]
+    _failed_downloads.append({
+        "chat_id": chat_id,
+        "msg_id": msg_id,
+        "task_id": str(task_id),
+        "file_name": file_name,
+        "error_message": error_message,
+        "total_size": total_size,
+        "timestamp": time.time(),
+    })
+
+
+def get_failed_downloads() -> list:
+    """Get list of failed downloads"""
+    return _failed_downloads
+
+
+def remove_failed_download(task_id) -> bool:
+    """Remove a failed download entry by task_id"""
+    global _failed_downloads
+    before = len(_failed_downloads)
+    _failed_downloads = [
+        f for f in _failed_downloads if str(f.get("task_id", "")) != str(task_id)
+    ]
+    return len(_failed_downloads) < before
+
+
+def clear_completed_downloads():
+    """Clear completed downloads from result (keep only active)"""
+    for chat_id, messages in list(_download_result.items()):
+        for msg_id, value in list(messages.items()):
+            if value["down_byte"] == value["total_size"]:
+                del _download_result[chat_id][msg_id]
+        if not _download_result[chat_id]:
+            del _download_result[chat_id]
+
+
 async def update_download_status(
     down_byte: int,
     total_size: int,
@@ -64,6 +142,12 @@ async def update_download_status(
         client.stop_transmission()
 
     chat_id = node.chat_id
+
+    # Check if this individual task is paused
+    while is_task_paused(node.task_id):
+        if node.is_stop_transmission:
+            client.stop_transmission()
+        await asyncio.sleep(1)
 
     while get_download_state() == DownloadState.StopDownload:
         if node.is_stop_transmission:

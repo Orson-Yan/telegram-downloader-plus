@@ -1,313 +1,493 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Telegram Media Downloader</title>
-  <link href="static/layui/css/layui.css" rel="stylesheet">
-  <link href="static/css/index.css" rel="stylesheet">
-  <style>
-    body {
-      padding: 6px 16px;
-    }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Telegram Media Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #1e40af; }
+        .tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; }
+        .tab-inactive:hover { color: #374151; border-bottom-color: #93c5fd; }
+        .progress-bar { transition: width 0.5s ease-in-out; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .card-hover { transition: all 0.15s ease-in-out; }
+        .card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .btn-action { transition: all 0.15s ease; }
+        .btn-action:active { transform: scale(0.95); }
+        .toast-enter { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
 </head>
+<body class="bg-white min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
-<body>
-  <div class="layui-tab" lay-filter="telegram_media_downloader">
-    <div class="header-title layui-tab-brief">
-      <ul class="layui-tab-title">
-        <li class="layui-this">Downloading</li>
-        <li>Downloaded</li>
-        <!-- <li>Config</li> -->
-      </ul>
-      <div class="stop-btn" id="download_state" data-value="{{ download_state }}" onclick="download_state_change(this)"> {{ download_state }} </div>
-    </div>
-    <div class="layui-tab-content" style="padding: 0;">
-      <div class="layui-tab-item layui-show">
-        <table class="layui-hide" id="download_list" lay-filter="download_list"></table>
-      </div>
-      <div class="layui-tab-item">
-        <table class="layui-hide" id="already_download_list" lay-filter="already_download_list"></table>
-      </div>
-      <!-- <div class="layui-tab-item">
-        <form class="layui-form" action="">
-        under development
-      </form>
-      </div> -->
-    </div>
-  </div>
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Logo & Title -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-semibold text-gray-900 leading-tight">Telegram Downloader</h1>
+                        <p class="text-xs text-gray-400" x-text="'v' + version" x-show="version"></p>
+                    </div>
+                </div>
 
-  <div class="layui-footer">
-    <div class="layui-row layui-col-space1">
-      <div class="layui-col-md2">
-        <p>Telegram Media Downloader V <b id="app_version" style="color: #009688;">undefined</b>
-      </div>
-      <div class="layui-col-md7">
-      </div>
-      <div class="layui-col-md3">
-        <div style="padding: 5px; float: right;">
-          <!-- <i class="layui-icon layui-icon-upload-circle" style="font-size: 16px; color: #1E9FFF; font-weight: 700;">
-            <i id="upload_speed_title" style="color: black;"> 0.00 B/s </i>
-          </i> -->
+                <!-- Speed & Controls -->
+                <div class="flex items-center gap-4">
+                    <!-- Download Speed -->
+                    <div class="hidden sm:flex items-center gap-2 text-sm text-gray-600">
+                        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                        </svg>
+                        <span class="font-mono font-medium" x-text="downloadSpeed">0.00 B/s</span>
+                    </div>
 
-          <i class="layui-icon layui-icon-download-circle"
-            style="font-size: 16px; color: #5FB878; font-weight: 700; margin-left: 15px;">
-            <i id="download_speed_title" style="color: black;"> 0.00 B/s </i>
-          </i>
-
+                    <!-- Global Pause/Resume -->
+                    <button
+                        @click="toggleGlobalPause()"
+                        class="btn-action flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                        :class="downloadState === 'pause' ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'"
+                    >
+                        <svg x-show="downloadState === 'pause'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <svg x-show="downloadState !== 'pause'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span x-text="downloadState === 'pause' ? 'Resume' : 'Pause'"></span>
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="bg-white border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+            <nav class="flex gap-0" role="tablist">
+                <button
+                    @click="activeTab = 'active'"
+                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                    :class="activeTab === 'active' ? 'tab-active' : 'tab-inactive'"
+                    role="tab"
+                >
+                    <span class="flex items-center gap-2">
+                        Active
+                        <span x-show="activeTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-blue-500 text-white" x-text="activeTasks.length"></span>
+                    </span>
+                </button>
+                <button
+                    @click="activeTab = 'completed'"
+                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                    :class="activeTab === 'completed' ? 'tab-active' : 'tab-inactive'"
+                    role="tab"
+                >
+                    <span class="flex items-center gap-2">
+                        Completed
+                        <span x-show="completedTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-green-500 text-white" x-text="completedTasks.length"></span>
+                    </span>
+                </button>
+                <button
+                    @click="activeTab = 'failed'"
+                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                    :class="activeTab === 'failed' ? 'tab-active' : 'tab-inactive'"
+                    role="tab"
+                >
+                    <span class="flex items-center gap-2">
+                        Failed
+                        <span x-show="failedTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-red-500 text-white" x-text="failedTasks.length"></span>
+                    </span>
+                </button>
+            </nav>
+        </div>
     </div>
-  </div>
 
-  <script src="static/layui/layui.js"></script>
-  <script>
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
-    layui.use(['table', 'element'], function () {
-      var table = layui.table;
-      var element = layui.element;
-      var layer = layui.layer;
-      var $ = layui.$;
-      var already_download_list_data = new Array()
-      var download_list_table_data = new Array()
+        <!-- Active Downloads Tab -->
+        <div x-show="activeTab === 'active'" x-transition:enter="fade-in">
+            <!-- Empty State -->
+            <div x-show="activeTasks.length === 0" class="text-center py-20">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </div>
+                <h3 class="text-gray-500 font-medium mb-1">No active downloads</h3>
+                <p class="text-gray-400 text-sm">Tasks will appear here when downloads start</p>
+            </div>
 
-      $.ajax({
-        url: "get_app_version"
-        , type: "get"
-        , async: false
-        , dataType: "text"
-        , success: function (result) {
-          $("#app_version").html(result)
+            <!-- Active Task Cards -->
+            <div class="space-y-3">
+                <template x-for="task in activeTasks" :key="task.task_id">
+                    <div class="card-hover bg-gray-50 rounded-xl p-4 border border-gray-100 fade-in">
+                        <div class="flex items-start justify-between gap-3">
+                            <!-- File Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                        Active
+                                    </span>
+                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                </div>
+                                <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
+                                <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                                    <span x-text="task.total_size"></span>
+                                    <span class="text-gray-300">|</span>
+                                    <span class="font-mono text-blue-600 font-medium" x-text="task.download_speed"></span>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    @click="pauseTask(task.task_id)"
+                                    class="btn-action p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 border border-amber-200"
+                                    title="Pause"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"/>
+                                    </svg>
+                                </button>
+                                <button
+                                    @click="deleteTask(task.task_id)"
+                                    class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
+                                    title="Delete"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="mt-3">
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span>Progress</span>
+                                <span class="font-mono font-medium" x-text="task.download_progress + '%'"></span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                    class="h-full rounded-full progress-bar"
+                                    :class="{
+                                        'bg-red-400': task.download_progress_raw < 30,
+                                        'bg-blue-500': task.download_progress_raw >= 30 && task.download_progress_raw < 100,
+                                        'bg-green-500': task.download_progress_raw >= 100
+                                    }"
+                                    :style="'width: ' + task.download_progress + '%'"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Completed Downloads Tab -->
+        <div x-show="activeTab === 'completed'" x-transition:enter="fade-in">
+            <!-- Empty State -->
+            <div x-show="completedTasks.length === 0" class="text-center py-20">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-gray-500 font-medium mb-1">No completed downloads</h3>
+                <p class="text-gray-400 text-sm">Finished downloads will appear here</p>
+            </div>
+
+            <!-- Completed Task Cards -->
+            <div class="space-y-3">
+                <template x-for="task in completedTasks" :key="task.task_id">
+                    <div class="card-hover bg-gray-50 rounded-xl p-4 border border-gray-100 fade-in">
+                        <div class="flex items-start justify-between gap-3">
+                            <!-- File Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                        Completed
+                                    </span>
+                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                </div>
+                                <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
+                                <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                                    <span x-text="task.total_size"></span>
+                                </div>
+                                <div class="mt-1.5 text-xs text-gray-400 truncate" :title="task.save_path">
+                                    <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                    </svg>
+                                    <span x-text="task.save_path"></span>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    @click="deleteTask(task.task_id)"
+                                    class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
+                                    title="Delete"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar (100% green) -->
+                        <div class="mt-3">
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span>Progress</span>
+                                <span class="font-mono font-medium text-green-600" x-text="task.download_progress + '%'"></span>
+                            </div>
+                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full bg-green-500 progress-bar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Failed Downloads Tab -->
+        <div x-show="activeTab === 'failed'" x-transition:enter="fade-in">
+            <!-- Empty State -->
+            <div x-show="failedTasks.length === 0" class="text-center py-20">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                </div>
+                <h3 class="text-gray-500 font-medium mb-1">No failed downloads</h3>
+                <p class="text-gray-400 text-sm">Failed downloads will appear here</p>
+            </div>
+
+            <!-- Failed Task Cards -->
+            <div class="space-y-3">
+                <template x-for="task in failedTasks" :key="task.task_id">
+                    <div class="card-hover bg-red-50 rounded-xl p-4 border border-red-100 fade-in">
+                        <div class="flex items-start justify-between gap-3">
+                            <!-- File Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                                        Failed
+                                    </span>
+                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                </div>
+                                <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
+                                <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                                    <span x-text="task.total_size"></span>
+                                </div>
+                                <!-- Error Message -->
+                                <div class="mt-2 flex items-start gap-1.5 p-2 bg-red-100/50 rounded-lg">
+                                    <svg class="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-xs text-red-600" x-text="task.error_message"></span>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    @click="retryTask(task.task_id)"
+                                    class="btn-action flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 border border-blue-200"
+                                    title="Retry"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                    </svg>
+                                    Retry
+                                </button>
+                                <button
+                                    @click="deleteTask(task.task_id)"
+                                    class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
+                                    title="Delete"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-transition:enter="toast-enter" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         class="fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium"
+         :class="{
+             'bg-green-500 text-white': toast.type === 'success',
+             'bg-red-500 text-white': toast.type === 'error',
+             'bg-blue-500 text-white': toast.type === 'info'
+         }"
+    >
+        <span x-text="toast.message"></span>
+    </div>
+
+    <script>
+    function app() {
+        return {
+            activeTab: 'active',
+            version: '',
+            downloadSpeed: '0.00 B/s',
+            downloadState: 'pause',
+            activeTasks: [],
+            completedTasks: [],
+            failedTasks: [],
+            allTasks: [],
+            toast: { show: false, message: '', type: 'success' },
+            pollTimer: null,
+
+            async init() {
+                await this.fetchVersion();
+                await this.fetchDownloadState();
+                await this.fetchAll();
+                // Start polling every 1 second
+                this.pollTimer = setInterval(() => {
+                    this.fetchDownloadStatus();
+                    this.fetchAll();
+                }, 1000);
+            },
+
+            async fetchVersion() {
+                try {
+                    const res = await fetch('/get_app_version');
+                    this.version = await res.text();
+                } catch(e) {
+                    this.version = '?';
+                }
+            },
+
+            async fetchDownloadStatus() {
+                try {
+                    const res = await fetch('/get_download_status');
+                    const data = await res.json();
+                    this.downloadSpeed = data.download_speed;
+                } catch(e) {}
+            },
+
+            async fetchDownloadState() {
+                // The initial state is set by the server; we track it locally via toggle
+            },
+
+            async fetchAll() {
+                try {
+                    // Fetch active/in-progress downloads
+                    const activeRes = await fetch('/get_download_list?already_down=false');
+                    const activeData = await activeRes.json();
+                    // Fetch completed downloads
+                    const completedRes = await fetch('/get_download_list?already_down=true');
+                    const completedData = await completedRes.json();
+                    // Fetch failed downloads
+                    const failedRes = await fetch('/get_failed_downloads');
+                    const failedData = await failedRes.json();
+
+                    this.allTasks = [...activeData, ...completedData];
+
+                    this.activeTasks = activeData.filter(t => t.download_progress_raw < 100);
+                    this.completedTasks = completedData.filter(t => t.download_progress_raw >= 100);
+                    this.failedTasks = failedData;
+                } catch(e) {
+                    console.error('Fetch error:', e);
+                }
+            },
+
+            async toggleGlobalPause() {
+                try {
+                    const res = await fetch('/set_download_state?state=' + this.downloadState, { method: 'POST' });
+                    this.downloadState = await res.text();
+                    this.showToast(
+                        this.downloadState === 'pause' ? 'Downloads paused' : 'Downloads resumed',
+                        'info'
+                    );
+                } catch(e) {
+                    this.showToast('Failed to toggle download state', 'error');
+                }
+            },
+
+            async pauseTask(taskId) {
+                try {
+                    const res = await fetch('/pause_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('Task paused', 'info');
+                    } else {
+                        this.showToast(data.message || 'Failed to pause', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('Network error', 'error');
+                }
+            },
+
+            async deleteTask(taskId) {
+                try {
+                    const res = await fetch('/delete_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('Task deleted', 'success');
+                        this.fetchAll();
+                    } else {
+                        this.showToast(data.message || 'Failed to delete', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('Network error', 'error');
+                }
+            },
+
+            async retryTask(taskId) {
+                try {
+                    const res = await fetch('/retry_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('Retry queued', 'success');
+                        this.fetchAll();
+                    } else {
+                        this.showToast(data.message || 'Failed to retry', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('Network error', 'error');
+                }
+            },
+
+            showToast(message, type = 'success') {
+                this.toast = { show: true, message, type };
+                setTimeout(() => {
+                    this.toast.show = false;
+                }, 2500);
+            }
         }
-      });
-
-      download_state_change = function(e) {
-        $.ajax({
-        url: "set_download_state?state=" + e.dataset.value
-        , type: "post"
-        , async: false
-        , dataType: "text"
-        , success: function (result) {
-          $("#download_state").html(result)
-          e.dataset.value=result
-        }
-      });
     }
-
-      tableIns = table.render({
-        elem: '#download_list'
-        , data: download_list_table_data
-        , title: 'download_list'
-        , height: 'full-160'
-        , limit: 10000
-        , cols: [[
-          { field: 'chat', title: 'chat', width: 100 },
-          { field: 'id', title: 'id', width: 100 }
-          , { field: 'filename', title: 'file name', align: 'center' }
-          , { field: 'total_size', title: 'total byte', align: 'center' }
-          , {
-            field: 'download_progress', title: 'download progress', align: 'center', templet: function (d) {
-              var ys = '';
-              if (30 < d.download_progress && d.download_progress < 100) {
-                ys = 'layui-bg-blue'
-              } else if (0 < d.download_progress && d.download_progress <= 30) {
-                ys = 'layui-bg-red'
-              }
-              else if (100 == d.download_progress) {
-                ys = 'layui-bg-green'
-              }
-              return '<div class="layui-progress layui-progress-big" lay-showpercent="true"  lay-filter="down-' + d.id + '"><div class="layui-progress-bar ' + ys + '" lay-percent="' + d.download_progress + '%"></div></div>'
-            }
-          }
-          , { field: 'download_speed', title: 'download speed', align: 'center' }
-        ]]
-        , done: function (res, currentCount) {
-          element.render()
-        }
-      });
-
-      table.render({
-        elem: '#already_download_list'
-        , data: already_download_list_data
-        , title: 'already_download_list'
-        , height: 'full-160'
-        , limit: 10000
-        , cols: [[
-
-          { field: 'id', title: 'id', width: 100 }
-          , { field: 'filename', title: 'file name', align: 'center' }
-          , { field: 'total_size', title: 'total size', align: 'center' }
-          , { field: 'save_path', title: 'save path', align: 'center' }
-        ]], done: function (res, currentCount) {
-          element.render()
-        }
-      });
-
-      function update_download_list() {
-        $.ajax({
-          url: "get_download_list?already_down=false"
-          , type: "get"
-          , async: false
-          , dataType: "json"
-          , success: function (result) {
-            // first remove finish and update
-            for (var j = 0, len2 = download_list_table_data.length; j < len2; j++) {
-              find_iter = false
-              for (var i = 0, len = result.length; i < len; i++) {
-                if (result[i].chat == download_list_table_data[j].chat && result[i].id == download_list_table_data[j].id) {
-                  download_list_table_data[j].download_progress = result[i].download_progress
-                  var progress = download_list_table_data[j].download_progress
-                  element.progress('down-' + result[i].chat + '-' + result[i].id, progress + '%');
-
-                  var download_speed_obj = $('div[lay-filter="down_speed-' + result[i].chat + '-' + result[i].id + '"]')
-                  download_speed_obj.html(result[i].download_speed)
-
-                  if (progress == 100) {
-                    var device_obj = $('div[lay-filter="down-' + result[i].chat + '-' + result[i].id + '"] div')
-                    device_obj.removeClass("layui-bg-blue")
-                    device_obj.addClass("layui-bg-green")
-                    obj = $('div[lay-id="download_list"]  tr[data-index="' + result[i].chat + '-' + result[i].id + '"]')
-                    obj.remove()
-                  }
-                  find_iter = true
-                  break
-                }
-              }
-
-            }
-
-            // new task
-            for (var i = 0, len = result.length; i < len; i++) {
-              find_iter = false
-              for (var j = 0, len2 = download_list_table_data.length; j < len2; j++) {
-                if (result[i].chat == download_list_table_data[j].chat && result[i].id == download_list_table_data[j].id) {
-                  find_iter = true
-                  break
-                }
-              }
-
-              if (find_iter || result[i].download_progress == 100) {
-                continue;
-              }
-              // not found
-              obj = $('div[lay-id="download_list"]  .layui-table-body .layui-table tbody')
-              var tr = ' <tr data-index="' + result[i].chat + '-' + result[i].id + '">' +
-                '<td data-field="id" data-key="1-0-0" class=""><div class="layui-table-cell laytable-cell-1-0-0">' + result[i].chat + '</div></td>' +
-                '<td data-field="id" data-key="1-0-1" class=""><div class="layui-table-cell laytable-cell-1-0-1">' + result[i].id + '</div></td>' +
-                '<td data-field="filename" data-key="1-0-2" class=""><div class="layui-table-cell laytable-cell-1-0-2" align="center">' + result[i].filename + '</div></td>' +
-                '<td data-field="total_size" data-key="1-0-3" class=""><div class="layui-table-cell laytable-cell-1-0-3" align="center">' + result[i].total_size + '</div></td>' +
-                '<td data-field="download_progress" data-key="1-0-4" data-content="' + result[i].download_progress + '" class=""><div class="layui-table-cell laytable-cell-1-0-4" align="center"><div class="layui-progress layui-progress-big" lay-showpercent="true" lay-filter="down-' + result[i].chat + '-' + result[i].id + '"><div class="layui-progress-bar layui-bg-blue" lay-percent="' + result[i].download_progress + '%" style="width: ' + result[i].download_progress + '%;"><span class="layui-progress-text">' + result[i].download_progress + '%</span></div></div></div></td>' +
-                '<td data-field="download_speed" data-key="1-0-5" class=""><div class="layui-table-cell laytable-cell-1-0-5" align="center"lay-filter="down_speed-' + result[i].chat + '-' + result[i].id + '">' + result[i].download_speed + '</div></td>' +
-                "  </tr>";
-              obj.append(tr)
-              download_list_table_data.push(result[i])
-
-              if (download_list_table_data.length == 1) {
-                $(".layui-none").remove()
-              }
-
-              element.render()
-
-            }
-
-            element.render()
-          }
-        });
-
-      };
-
-
-      function update_download_status() {
-        $.ajax({
-          url: "get_download_status"
-          , type: "get"
-          , async: false
-          , dataType: "json"
-          , success: function (result) {
-            $("#download_speed_title").html(result.download_speed)
-          }
-        });
-
-      };
-
-
-      var update_download_list_int = self.setInterval(update_download_list, 1000);
-      var update_download_status_int = self.setInterval(update_download_status, 1000);
-      var update_already_download_list_int = 0;
-
-
-      function update_already_download_list() {
-        $.ajax({
-          url: "get_download_list?already_down=true"
-          , type: "get"
-          , async: false
-          , dataType: "json"
-          , success: function (result) {
-            // if not exist then add
-            for (var i = 0, len = result.length; i < len; i++) {
-              if (result[i].download_progress != 100) {
-                continue
-              }
-
-              find_iter = false
-
-              for (var j = 0, len2 = already_download_list_data.length; j < len2; j++) {
-                if (result[i].chat == download_list_table_data[i].chat && result[i].id == already_download_list_data[j].id) {
-                  find_iter = true
-                  break
-                }
-              }
-
-              if (find_iter) {
-                continue;
-              }
-              // not found
-              obj = $('div[lay-id="already_download_list"]  .layui-table-body .layui-table tbody')
-              var tr = ' <tr data-index="' + result[i].chat + '-' + result[i].id + '">' +
-                '<td data-field="id" data-key="2-0-0" class=""><div class="layui-table-cell laytable-cell-2-0-0">' + result[i].id + '</div></td>' +
-                '<td data-field="filename" data-key="2-0-1" class=""><div class="layui-table-cell laytable-cell-2-0-1" align="center">' + result[i].filename + '</div></td>' +
-                '<td data-field="total_size" data-key="2-0-2" class=""><div class="layui-table-cell laytable-cell-2-0-2" align="center">' + result[i].total_size + '</div></td>' +
-                '<td data-field="save_path" data-key="2-0-3" class=""><div class="layui-table-cell laytable-cell-2-0-3" align="center">' + result[i].save_path + '</div></td>' +
-                "  </tr>";
-              obj.append(tr)
-
-              already_download_list_data.push(result[i])
-
-              if (already_download_list_data.length == 1) {
-                $(".layui-none").remove()
-              }
-              element.render()
-            }
-
-            element.render()
-          }
-        });
-
-      };
-
-      element.on('tab(telegram_media_downloader)', function (data) {
-        if (data.index != 0) {
-          clearInterval(update_download_list_int);
-        }
-
-        if (data.index == 0) {
-          update_download_list_int = self.setInterval(update_download_list, 1000);
-        }
-
-        if (data.index != 1) {
-          clearInterval(update_already_download_list_int);
-        }
-
-        if (data.index == 1) {
-          update_already_download_list_int = self.setInterval(update_already_download_list, 1000);
-        }
-
-      });
-
-    });
-  </script>
+    </script>
 </body>
-
 </html>

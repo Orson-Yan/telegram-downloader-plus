@@ -1,29 +1,29 @@
-version: "3.3"
+version: "3.8"
 
 services:
   telegram_media_downloader:
-    image: tangyoha/telegram_media_downloader:latest
     build: .
+    image: mangoisillegal/telegram_media_downloader:latest
+    container_name: telegram_media_downloader
+    network_mode: bridge
+    stdin_open: true
+    tty: true
     ports:
-      # Here is what you need to edit
       - "5000:5000"
-    #environment:
-    #  - http_proxy=http://192.168.101.30:10811
-    #  - https_proxy=http://192.168.101.30:10811
+    environment:
+      - TZ=Asia/Shanghai
+      - http_proxy=socks5://172.17.0.1:20170
+      - https_proxy=socks5://172.17.0.1:20170
     volumes:
-      # Here is what you need to edit
-      - "./downloads/:/app/downloads/"
-
-      # Rclone
-      - "$HOME/.config/rclone/:$HOME/.config/rclone/"
-
-      # The following is what you don't need to edit
+      # 下载目录 (修改为你的实际路径)
+      - "/volume4/资料-10t:/app/downloads/"
+      # 配置文件
       - "./config.yaml:/app/config.yaml"
       - "./data.yaml:/app/data.yaml"
-      - "./log/:/app/log/"
-      - "./sessions/:/app/sessions"
-      - "./temp/:/app/temp"
-    #restart: "unless-stopped"
-# volumes:
-#   sessions:
-#   temp:
+      # 日志
+      - "./log:/app/log/"
+      # Telegram session
+      - "./sessions:/app/sessions"
+      # 临时文件
+      - "./temp:/app/temp"
+    restart: unless-stopped
