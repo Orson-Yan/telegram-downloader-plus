@@ -233,10 +233,10 @@ class TaskNode:
 
         Returns:
             True if the time elapsed since
-                the last reply is greater than 1 second, False otherwise.
+                the last reply is greater than 5 seconds, False otherwise.
         """
         cur_time = time.time()
-        if cur_time - self.last_reply_time > 1.0:
+        if cur_time - self.last_reply_time > 5.0:
             self.last_reply_time = cur_time
             return True
 
@@ -899,8 +899,6 @@ class Application:
         if immediate:
             with open(self.config_file, "w", encoding="utf-8") as yaml_file:
                 _yaml.dump(self.config, yaml_file)
-
-        if immediate:
             with open(self.app_data_file, "w", encoding="utf-8") as yaml_file:
                 _yaml.dump(self.app_data, yaml_file)
 

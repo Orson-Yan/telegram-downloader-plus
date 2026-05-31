@@ -10,8 +10,10 @@ import utils
 from module.app import Application
 from module.download_stat import (
     DownloadState,
-    add_failed_download,
+    batch_delete_failed,
+    batch_delete_tasks,
     delete_task,
+    get_chat_title,
     get_download_result,
     get_download_state,
     get_failed_downloads,
@@ -74,11 +76,19 @@ def index():
 @_flask_app.route("/get_download_status")
 def get_download_speed():
     """Get download speed"""
-    return (
-        '{ "download_speed" : "'
-        + format_byte(get_total_download_speed())
-        + '/s" , "upload_speed" : "0.00 B/s" } '
+    return jsonify(
+        download_speed=format_byte(get_total_download_speed()) + "/s",
+        upload_speed="0.00 B/s"
     )
+
+
+@_flask_app.route("/get_download_state")
+def web_get_download_state():
+    """Get current download state"""
+    state = get_download_state()
+    if state is DownloadState.Downloading:
+        return "downloading"
+    return "paused"
 
 
 @_flask_app.route("/set_download_state", methods=["POST"])
@@ -112,16 +122,13 @@ def get_download_list():
     already_down = request.args.get("already_down") == "true"
 
     download_result = get_download_result()
-    result = "["
+    result = []
     for chat_id, messages in download_result.items():
         for idx, value in messages.items():
             is_already_down = value["down_byte"] == value["total_size"]
 
             if already_down and not is_already_down:
                 continue
-
-            if result != "[":
-                result += ","
 
             progress = round(value["down_byte"] / value["total_size"] * 100, 1)
             download_speed = format_byte(value["download_speed"]) + "/s"
@@ -139,65 +146,45 @@ def get_download_list():
             else:
                 status = "active"
 
-            result += (
-                '{ "task_id":"'
-                + str(task_id)
-                + '", "chat":"'
-                + f"{chat_id}"
-                + '", "id":"'
-                + f"{idx}"
-                + '", "filename":"'
-                + os.path.basename(value["file_name"]).replace('"', '\\"')
-                + '", "total_size":"'
-                + f'{format_byte(value["total_size"])}'
-                + '", "total_size_bytes":'
-                + str(value["total_size"])
-                + ', "download_progress":"'
-            )
-            result += (
-                f"{progress}"
-                + '", "download_progress_raw":'
-                + str(progress)
-                + ', "download_speed":"'
-                + download_speed
-                + '", "save_path":"'
-                + value["file_name"].replace("\\", "/").replace('"', '\\"')
-                + '", "status":"'
-                + status
-                + '"}'
-            )
+            # Get chat title from cache
+            chat_title = get_chat_title(chat_id)
 
-    result += "]"
-    return result
+            result.append({
+                "task_id": str(task_id),
+                "chat": str(chat_id),
+                "chat_title": chat_title,
+                "id": str(idx),
+                "filename": os.path.basename(value["file_name"]),
+                "total_size": format_byte(value["total_size"]),
+                "total_size_bytes": value["total_size"],
+                "download_progress": str(progress),
+                "download_progress_raw": progress,
+                "download_speed": download_speed,
+                "save_path": value["file_name"].replace("\\", "/"),
+                "status": status,
+            })
+
+    return jsonify(result)
 
 
 @_flask_app.route("/get_failed_downloads")
 def web_get_failed_downloads():
     """Get list of failed downloads"""
     failed = get_failed_downloads()
-    result = "["
-    for i, f in enumerate(failed):
-        if result != "[":
-            result += ","
-        file_name = f.get("file_name", "").replace('"', '\\"')
-        error_msg = f.get("error_message", "Unknown error").replace('"', '\\"')
-        result += (
-            '{ "task_id":"'
-            + str(f["task_id"])
-            + '", "chat":"'
-            + str(f.get("chat_id", ""))
-            + '", "id":"'
-            + str(f.get("msg_id", ""))
-            + '", "filename":"'
-            + os.path.basename(file_name)
-            + '", "error_message":"'
-            + error_msg
-            + '", "total_size":"'
-            + format_byte(f.get("total_size", 0))
-            + '"}'
-        )
-    result += "]"
-    return result
+    result = []
+    for f in failed:
+        chat_id = f.get("chat_id", "")
+        chat_title = get_chat_title(chat_id)
+        result.append({
+            "task_id": str(f["task_id"]),
+            "chat": str(chat_id),
+            "chat_title": chat_title,
+            "id": str(f.get("msg_id", "")),
+            "filename": os.path.basename(f.get("file_name", "")),
+            "error_message": f.get("error_message", "Unknown error"),
+            "total_size": format_byte(f.get("total_size", 0)),
+        })
+    return jsonify(result)
 
 
 @_flask_app.route("/pause_task", methods=["POST"])
@@ -235,6 +222,28 @@ def web_delete_task():
     if success:
         return jsonify({"code": "1", "message": "deleted"})
     return jsonify({"code": "0", "message": "task not found"})
+
+
+@_flask_app.route("/batch_delete", methods=["POST"])
+def web_batch_delete():
+    """Batch delete tasks by task_ids"""
+    data = request.get_json(silent=True)
+    if not data or "task_ids" not in data:
+        return jsonify({"code": "0", "message": "task_ids required"})
+
+    task_ids = data["task_ids"]
+    if not isinstance(task_ids, list):
+        return jsonify({"code": "0", "message": "task_ids must be a list"})
+
+    deleted_active = batch_delete_tasks(task_ids)
+    deleted_failed = batch_delete_failed(task_ids)
+    total = deleted_active + deleted_failed
+
+    return jsonify({
+        "code": "1",
+        "message": f"deleted {total} tasks",
+        "deleted": total,
+    })
 
 
 @_flask_app.route("/retry_task", methods=["POST"])

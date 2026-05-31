@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,23 +27,25 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         .card-hover { transition: all 0.15s ease-in-out; }
         .card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .spinner { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .btn-action { transition: all 0.15s ease; }
         .btn-action:active { transform: scale(0.95); }
         .toast-enter { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .checkbox-row { transition: background-color 0.15s ease; }
+        .checkbox-row.selected { background-color: #eff6ff; }
+        .batch-bar { animation: slideDown 0.2s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-white min-h-screen" x-data="app()" x-init="init()" x-cloak>
+<body class="bg-gray-50 min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
     <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between">
                 <!-- Logo & Title -->
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                         </svg>
@@ -67,17 +69,17 @@
                     <!-- Global Pause/Resume -->
                     <button
                         @click="toggleGlobalPause()"
-                        class="btn-action flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                        :class="downloadState === 'pause' ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'"
+                        class="btn-action flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                        :class="isDownloading ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'"
                     >
-                        <svg x-show="downloadState === 'pause'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg x-show="isDownloading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <svg x-show="!isDownloading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        <svg x-show="downloadState !== 'pause'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <span x-text="downloadState === 'pause' ? 'Resume' : 'Pause'"></span>
+                        <span x-text="isDownloading ? '全部暂停' : '全部继续'"></span>
                     </button>
                 </div>
             </div>
@@ -89,39 +91,57 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6">
             <nav class="flex gap-0" role="tablist">
                 <button
-                    @click="activeTab = 'active'"
+                    @click="activeTab = 'active'; selectedTasks = []"
                     class="px-4 py-3 text-sm font-medium transition-colors relative"
                     :class="activeTab === 'active' ? 'tab-active' : 'tab-inactive'"
                     role="tab"
                 >
                     <span class="flex items-center gap-2">
-                        Active
+                        下载中
                         <span x-show="activeTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-blue-500 text-white" x-text="activeTasks.length"></span>
                     </span>
                 </button>
                 <button
-                    @click="activeTab = 'completed'"
+                    @click="activeTab = 'completed'; selectedTasks = []"
                     class="px-4 py-3 text-sm font-medium transition-colors relative"
                     :class="activeTab === 'completed' ? 'tab-active' : 'tab-inactive'"
                     role="tab"
                 >
                     <span class="flex items-center gap-2">
-                        Completed
+                        已完成
                         <span x-show="completedTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-green-500 text-white" x-text="completedTasks.length"></span>
                     </span>
                 </button>
                 <button
-                    @click="activeTab = 'failed'"
+                    @click="activeTab = 'failed'; selectedTasks = []"
                     class="px-4 py-3 text-sm font-medium transition-colors relative"
                     :class="activeTab === 'failed' ? 'tab-active' : 'tab-inactive'"
                     role="tab"
                 >
                     <span class="flex items-center gap-2">
-                        Failed
+                        失败
                         <span x-show="failedTasks.length > 0" class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-red-500 text-white" x-text="failedTasks.length"></span>
                     </span>
                 </button>
             </nav>
+        </div>
+    </div>
+
+    <!-- Batch Action Bar -->
+    <div x-show="selectedTasks.length > 0" x-transition class="batch-bar bg-blue-50 border-b border-blue-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+            <span class="text-sm text-blue-700 font-medium">已选择 <span x-text="selectedTasks.length"></span> 项</span>
+            <div class="flex items-center gap-2">
+                <button @click="batchDelete()" class="btn-action flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    删除选中
+                </button>
+                <button @click="selectedTasks = []" class="btn-action px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 border border-gray-200">
+                    取消选择
+                </button>
+            </div>
         </div>
     </div>
 
@@ -130,6 +150,17 @@
 
         <!-- Active Downloads Tab -->
         <div x-show="activeTab === 'active'" x-transition:enter="fade-in">
+            <!-- Select All Bar -->
+            <div x-show="activeTasks.length > 0" class="mb-3 flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                    <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        :checked="selectedTasks.length === activeTasks.length && activeTasks.length > 0"
+                        @change="toggleSelectAll('active')">
+                    全选
+                </label>
+                <span class="text-xs text-gray-400" x-text="activeTasks.length + ' 个任务'"></span>
+            </div>
+
             <!-- Empty State -->
             <div x-show="activeTasks.length === 0" class="text-center py-20">
                 <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -137,24 +168,33 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                 </div>
-                <h3 class="text-gray-500 font-medium mb-1">No active downloads</h3>
-                <p class="text-gray-400 text-sm">Tasks will appear here when downloads start</p>
+                <h3 class="text-gray-500 font-medium mb-1">暂无下载任务</h3>
+                <p class="text-gray-400 text-sm">任务开始后会在这里显示</p>
             </div>
 
             <!-- Active Task Cards -->
             <div class="space-y-3">
                 <template x-for="task in activeTasks" :key="task.task_id">
-                    <div class="card-hover rounded-xl p-4 border fade-in"
-                         :class="task.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-100'">
-                        <div class="flex items-start justify-between gap-3">
+                    <div class="checkbox-row card-hover rounded-xl p-4 border fade-in bg-white shadow-sm"
+                         :class="task.status === 'paused' ? 'border-amber-200' : 'border-gray-100'"
+                         :id="'card-' + task.task_id">
+                        <div class="flex items-start gap-3">
+                            <!-- Checkbox -->
+                            <input type="checkbox" class="w-4 h-4 mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                                :value="task.task_id"
+                                :checked="selectedTasks.includes(task.task_id)"
+                                @change="toggleSelect(task.task_id)">
+
                             <!-- File Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                                           :class="task.status === 'paused' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'"
-                                          x-text="task.status === 'paused' ? 'Paused' : 'Active'">
+                                          x-text="task.status === 'paused' ? '已暂停' : '下载中'">
                                     </span>
-                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                    <span class="text-xs text-gray-400 font-medium" x-text="task.chat_title || task.chat"></span>
+                                    <span class="text-xs text-gray-300">•</span>
+                                    <span class="text-xs text-gray-400 font-mono" x-text="'Task #' + task.task_id"></span>
                                 </div>
                                 <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
                                 <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
@@ -168,24 +208,22 @@
 
                             <!-- Action Buttons -->
                             <div class="flex items-center gap-1.5 shrink-0">
-                                <!-- Pause button (shown when active) -->
                                 <template x-if="task.status === 'active'">
                                     <button
                                         @click="pauseTask(task.task_id)"
                                         class="btn-action p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 border border-amber-200"
-                                        title="Pause"
+                                        title="暂停"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"/>
                                         </svg>
                                     </button>
                                 </template>
-                                <!-- Resume button (shown when paused) -->
                                 <template x-if="task.status === 'paused'">
                                     <button
                                         @click="resumeTask(task.task_id)"
                                         class="btn-action p-1.5 rounded-lg text-green-600 hover:bg-green-50 border border-green-200"
-                                        title="Resume"
+                                        title="继续"
                                     >
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -196,7 +234,7 @@
                                 <button
                                     @click="deleteTask(task.task_id)"
                                     class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
-                                    title="Delete"
+                                    title="删除"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -206,17 +244,16 @@
                         </div>
 
                         <!-- Progress Bar -->
-                        <div class="mt-3">
+                        <div class="mt-3 ml-7">
                             <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                <span>Progress</span>
+                                <span>进度</span>
                                 <span class="font-mono font-medium" x-text="task.download_progress + '%'"></span>
                             </div>
-                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                                 <div
                                     class="h-full rounded-full progress-bar"
                                     :class="{
-                                        'bg-red-400': task.download_progress_raw < 30,
-                                        'bg-blue-500': task.download_progress_raw >= 30 && task.download_progress_raw < 100,
+                                        'bg-blue-500': task.download_progress_raw < 100,
                                         'bg-green-500': task.download_progress_raw >= 100
                                     }"
                                     :style="'width: ' + task.download_progress + '%'"
@@ -230,6 +267,17 @@
 
         <!-- Completed Downloads Tab -->
         <div x-show="activeTab === 'completed'" x-transition:enter="fade-in">
+            <!-- Select All Bar -->
+            <div x-show="completedTasks.length > 0" class="mb-3 flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                    <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        :checked="selectedTasks.length === completedTasks.length && completedTasks.length > 0"
+                        @change="toggleSelectAll('completed')">
+                    全选
+                </label>
+                <span class="text-xs text-gray-400" x-text="completedTasks.length + ' 个任务'"></span>
+            </div>
+
             <!-- Empty State -->
             <div x-show="completedTasks.length === 0" class="text-center py-20">
                 <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -237,22 +285,30 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
-                <h3 class="text-gray-500 font-medium mb-1">No completed downloads</h3>
-                <p class="text-gray-400 text-sm">Finished downloads will appear here</p>
+                <h3 class="text-gray-500 font-medium mb-1">暂无已完成任务</h3>
+                <p class="text-gray-400 text-sm">完成的下载会在这里显示</p>
             </div>
 
             <!-- Completed Task Cards -->
             <div class="space-y-3">
                 <template x-for="task in completedTasks" :key="task.task_id">
-                    <div class="card-hover bg-gray-50 rounded-xl p-4 border border-gray-100 fade-in">
-                        <div class="flex items-start justify-between gap-3">
+                    <div class="checkbox-row card-hover bg-white rounded-xl p-4 border border-gray-100 fade-in shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <!-- Checkbox -->
+                            <input type="checkbox" class="w-4 h-4 mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                                :value="task.task_id"
+                                :checked="selectedTasks.includes(task.task_id)"
+                                @change="toggleSelect(task.task_id)">
+
                             <!-- File Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                                        Completed
+                                        已完成
                                     </span>
-                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                    <span class="text-xs text-gray-400 font-medium" x-text="task.chat_title || task.chat"></span>
+                                    <span class="text-xs text-gray-300">•</span>
+                                    <span class="text-xs text-gray-400 font-mono" x-text="'Task #' + task.task_id"></span>
                                 </div>
                                 <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
                                 <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
@@ -271,7 +327,7 @@
                                 <button
                                     @click="deleteTask(task.task_id)"
                                     class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
-                                    title="Delete"
+                                    title="删除"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -281,12 +337,12 @@
                         </div>
 
                         <!-- Progress Bar (100% green) -->
-                        <div class="mt-3">
+                        <div class="mt-3 ml-7">
                             <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                <span>Progress</span>
+                                <span>进度</span>
                                 <span class="font-mono font-medium text-green-600" x-text="task.download_progress + '%'"></span>
                             </div>
-                            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full bg-green-500 progress-bar" style="width: 100%"></div>
                             </div>
                         </div>
@@ -297,6 +353,17 @@
 
         <!-- Failed Downloads Tab -->
         <div x-show="activeTab === 'failed'" x-transition:enter="fade-in">
+            <!-- Select All Bar -->
+            <div x-show="failedTasks.length > 0" class="mb-3 flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                    <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        :checked="selectedTasks.length === failedTasks.length && failedTasks.length > 0"
+                        @change="toggleSelectAll('failed')">
+                    全选
+                </label>
+                <span class="text-xs text-gray-400" x-text="failedTasks.length + ' 个任务'"></span>
+            </div>
+
             <!-- Empty State -->
             <div x-show="failedTasks.length === 0" class="text-center py-20">
                 <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -304,29 +371,37 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                     </svg>
                 </div>
-                <h3 class="text-gray-500 font-medium mb-1">No failed downloads</h3>
-                <p class="text-gray-400 text-sm">Failed downloads will appear here</p>
+                <h3 class="text-gray-500 font-medium mb-1">暂无失败任务</h3>
+                <p class="text-gray-400 text-sm">失败的下载会在这里显示</p>
             </div>
 
             <!-- Failed Task Cards -->
             <div class="space-y-3">
                 <template x-for="task in failedTasks" :key="task.task_id">
-                    <div class="card-hover bg-red-50 rounded-xl p-4 border border-red-100 fade-in">
-                        <div class="flex items-start justify-between gap-3">
+                    <div class="checkbox-row card-hover bg-white rounded-xl p-4 border border-red-100 fade-in shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <!-- Checkbox -->
+                            <input type="checkbox" class="w-4 h-4 mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                                :value="task.task_id"
+                                :checked="selectedTasks.includes(task.task_id)"
+                                @change="toggleSelect(task.task_id)">
+
                             <!-- File Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
-                                        Failed
+                                        失败
                                     </span>
-                                    <span class="text-xs text-gray-400" x-text="task.chat + ' / ' + task.id"></span>
+                                    <span class="text-xs text-gray-400 font-medium" x-text="task.chat_title || task.chat"></span>
+                                    <span class="text-xs text-gray-300">•</span>
+                                    <span class="text-xs text-gray-400 font-mono" x-text="'Task #' + task.task_id"></span>
                                 </div>
                                 <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
                                 <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
                                     <span x-text="task.total_size"></span>
                                 </div>
                                 <!-- Error Message -->
-                                <div class="mt-2 flex items-start gap-1.5 p-2 bg-red-100/50 rounded-lg">
+                                <div class="mt-2 flex items-start gap-1.5 p-2 bg-red-50 rounded-lg border border-red-100">
                                     <svg class="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
@@ -339,17 +414,17 @@
                                 <button
                                     @click="retryTask(task.task_id)"
                                     class="btn-action flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 border border-blue-200"
-                                    title="Retry"
+                                    title="重试"
                                 >
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                     </svg>
-                                    Retry
+                                    重试
                                 </button>
                                 <button
                                     @click="deleteTask(task.task_id)"
                                     class="btn-action p-1.5 rounded-lg text-red-500 hover:bg-red-50 border border-red-200"
-                                    title="Delete"
+                                    title="删除"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -381,11 +456,12 @@
             activeTab: 'active',
             version: '',
             downloadSpeed: '0.00 B/s',
-            downloadState: 'pause',
+            isDownloading: true,
             activeTasks: [],
             completedTasks: [],
             failedTasks: [],
             allTasks: [],
+            selectedTasks: [],
             toast: { show: false, message: '', type: 'success' },
             pollTimer: null,
 
@@ -393,11 +469,10 @@
                 await this.fetchVersion();
                 await this.fetchDownloadState();
                 await this.fetchAll();
-                // Start polling every 1 second
                 this.pollTimer = setInterval(() => {
                     this.fetchDownloadStatus();
                     this.fetchAll();
-                }, 1000);
+                }, 1500);
             },
 
             async fetchVersion() {
@@ -418,22 +493,21 @@
             },
 
             async fetchDownloadState() {
-                // The initial state is set by the server; we track it locally via toggle
+                try {
+                    const res = await fetch('/get_download_state');
+                    const state = await res.text();
+                    this.isDownloading = (state === 'downloading');
+                } catch(e) {}
             },
 
             async fetchAll() {
                 try {
-                    // Fetch active/in-progress downloads
                     const activeRes = await fetch('/get_download_list?already_down=false');
                     const activeData = await activeRes.json();
-                    // Fetch completed downloads
                     const completedRes = await fetch('/get_download_list?already_down=true');
                     const completedData = await completedRes.json();
-                    // Fetch failed downloads
                     const failedRes = await fetch('/get_failed_downloads');
                     const failedData = await failedRes.json();
-
-                    this.allTasks = [...activeData, ...completedData];
 
                     this.activeTasks = activeData.filter(t => t.download_progress_raw < 100);
                     this.completedTasks = completedData.filter(t => t.download_progress_raw >= 100);
@@ -445,14 +519,61 @@
 
             async toggleGlobalPause() {
                 try {
-                    const res = await fetch('/set_download_state?state=' + this.downloadState, { method: 'POST' });
-                    this.downloadState = await res.text();
+                    const wasDownloading = this.isDownloading;
+                    const state = wasDownloading ? 'pause' : 'continue';
+                    const res = await fetch('/set_download_state?state=' + state, { method: 'POST' });
+                    const newState = await res.text();
+                    this.isDownloading = (newState === 'pause');
                     this.showToast(
-                        this.downloadState === 'pause' ? 'Downloads paused' : 'Downloads resumed',
+                        wasDownloading ? '已全部暂停' : '已全部继续',
                         'info'
                     );
                 } catch(e) {
-                    this.showToast('Failed to toggle download state', 'error');
+                    this.showToast('操作失败', 'error');
+                }
+            },
+
+            toggleSelect(taskId) {
+                const idx = this.selectedTasks.indexOf(taskId);
+                if (idx === -1) {
+                    this.selectedTasks.push(taskId);
+                } else {
+                    this.selectedTasks.splice(idx, 1);
+                }
+            },
+
+            toggleSelectAll(tab) {
+                let tasks;
+                if (tab === 'active') tasks = this.activeTasks;
+                else if (tab === 'completed') tasks = this.completedTasks;
+                else tasks = this.failedTasks;
+
+                const allIds = tasks.map(t => t.task_id);
+                if (this.selectedTasks.length === allIds.length) {
+                    this.selectedTasks = [];
+                } else {
+                    this.selectedTasks = [...allIds];
+                }
+            },
+
+            async batchDelete() {
+                if (this.selectedTasks.length === 0) return;
+                try {
+                    const res = await fetch('/batch_delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ task_ids: this.selectedTasks })
+                    });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('已删除 ' + data.deleted + ' 个任务', 'success');
+                        this.selectedTasks = [];
+                        this.fetchAll();
+                    } else {
+                        this.showToast(data.message || '删除失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
                 }
             },
 
@@ -461,12 +582,12 @@
                     const res = await fetch('/pause_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
                     const data = await res.json();
                     if (data.code === '1') {
-                        this.showToast('Task paused', 'info');
+                        this.showToast('任务已暂停', 'info');
                     } else {
-                        this.showToast(data.message || 'Failed to pause', 'error');
+                        this.showToast(data.message || '暂停失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('Network error', 'error');
+                    this.showToast('网络错误', 'error');
                 }
             },
 
@@ -475,12 +596,12 @@
                     const res = await fetch('/resume_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
                     const data = await res.json();
                     if (data.code === '1') {
-                        this.showToast('Task resumed', 'success');
+                        this.showToast('任务已继续', 'success');
                     } else {
-                        this.showToast(data.message || 'Failed to resume', 'error');
+                        this.showToast(data.message || '继续失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('Network error', 'error');
+                    this.showToast('网络错误', 'error');
                 }
             },
 
@@ -489,13 +610,13 @@
                     const res = await fetch('/delete_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
                     const data = await res.json();
                     if (data.code === '1') {
-                        this.showToast('Task deleted', 'success');
+                        this.showToast('任务已删除', 'success');
                         this.fetchAll();
                     } else {
-                        this.showToast(data.message || 'Failed to delete', 'error');
+                        this.showToast(data.message || '删除失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('Network error', 'error');
+                    this.showToast('网络错误', 'error');
                 }
             },
 
@@ -504,13 +625,13 @@
                     const res = await fetch('/retry_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
                     const data = await res.json();
                     if (data.code === '1') {
-                        this.showToast('Retry queued', 'success');
+                        this.showToast('已加入重试队列', 'success');
                         this.fetchAll();
                     } else {
-                        this.showToast(data.message || 'Failed to retry', 'error');
+                        this.showToast(data.message || '重试失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('Network error', 'error');
+                    this.showToast('网络错误', 'error');
                 }
             },
 

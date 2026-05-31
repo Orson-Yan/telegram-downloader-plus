@@ -23,7 +23,12 @@ from module.app import (
     TaskType,
     UploadStatus,
 )
+from module.download_stat import (
+    add_failed_download,
+    set_chat_title,
+)
 from module.filter import Filter
+from module.task_store import save_task, complete_task, get_running_tasks
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import Language, _t
 from module.pyrogram_extension import (
@@ -106,8 +111,73 @@ class DownloadBot:
 
             for key, value in self.task_node.copy().items():
                 if value.is_running and value.is_finish():
+                    complete_task(value.task_id)
                     self.remove_task_node(key)
             await asyncio.sleep(3)
+
+    async def recover_tasks(self):
+        """Recover incomplete bot tasks from previous run."""
+        try:
+            await asyncio.sleep(5)  # Wait for bot to fully start
+            running_tasks = get_running_tasks()
+            if not running_tasks:
+                return
+
+            logger.info(f"Found {len(running_tasks)} incomplete bot tasks, recovering...")
+            for task_data in running_tasks:
+                try:
+                    task_id = task_data.get("task_id")
+                    chat_id = task_data.get("chat_id")
+                    url = task_data.get("url", "")
+                    start_offset_id = task_data.get("last_message_id", task_data.get("start_offset_id", 0))
+                    end_offset_id = task_data.get("end_offset_id", 0)
+                    limit = task_data.get("limit", 0)
+                    download_filter = task_data.get("download_filter")
+                    from_user_id = task_data.get("from_user_id")
+
+                    # Recalculate limit from the new start
+                    if end_offset_id and start_offset_id:
+                        limit = max(0, end_offset_id - start_offset_id + 1)
+
+                    chat_download_config = ChatDownloadConfig()
+                    chat_download_config.last_read_message_id = start_offset_id
+                    chat_download_config.download_filter = download_filter
+
+                    node = TaskNode(
+                        chat_id=chat_id,
+                        from_user_id=from_user_id,
+                        reply_message_id=0,  # No reply message on recovery
+                        limit=limit,
+                        start_offset_id=start_offset_id,
+                        end_offset_id=end_offset_id,
+                        bot=self.bot,
+                        task_id=task_id,
+                    )
+                    self.add_task_node(node)
+
+                    # Notify user
+                    if from_user_id and self.bot:
+                        try:
+                            chat_title = task_data.get("chat_id", "")
+                            from module.download_stat import get_chat_title
+                            chat_title = get_chat_title(chat_id)
+                            await self.bot.send_message(
+                                from_user_id,
+                                f"🔄 恢复未完成任务 #{task_id}\n"
+                                f"群组: {chat_title}\n"
+                                f"从消息 {start_offset_id} 继续下载",
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to send recovery notification: {e}")
+
+                    self.app.loop.create_task(
+                        self.download_chat_task(self.client, chat_download_config, node)
+                    )
+                    logger.info(f"Recovered task {task_id} for chat {chat_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to recover task {task_data.get('task_id')}: {e}")
+        except Exception as e:
+            logger.warning(f"Task recovery failed: {e}")
 
     def assign_config(self, _config: dict):
         """assign config from str.
@@ -130,7 +200,7 @@ class DownloadBot:
         """Update config from str."""
         self.config["download_filter"] = self.download_filter
 
-        with open("d", "w", encoding="utf-8") as yaml_file:
+        with open(self.config_path, "w", encoding="utf-8") as yaml_file:
             self._yaml.dump(self.config, yaml_file)
 
     async def start(
@@ -302,6 +372,9 @@ class DownloadBot:
             pass
 
         self.reply_task = _bot.app.loop.create_task(_bot.update_reply_message())
+
+        # Recover incomplete tasks from previous run
+        _bot.app.loop.create_task(_bot.recover_tasks())
 
         self.bot.add_handler(
             MessageHandler(
@@ -893,6 +966,8 @@ async def download_from_link(client: pyrogram.Client, message: pyrogram.types.Me
     if chat_id:
         entity = await _bot.client.get_chat(chat_id)
     if entity:
+        title = entity.title or entity.first_name or str(entity.id)
+        set_chat_title(entity.id, title)
         if message_id:
             download_message = await retry(
                 _bot.client.get_messages, args=(chat_id, message_id)
@@ -900,7 +975,7 @@ async def download_from_link(client: pyrogram.Client, message: pyrogram.types.Me
             if download_message:
                 await direct_download(_bot, entity.id, message, download_message)
             else:
-                client.send_message(
+                await client.send_message(
                     message.from_user.id,
                     f"{_t('From')} {entity.title} {_t('download')} {message_id} {_t('error')}!",
                     reply_to_message_id=message.id,
@@ -969,7 +1044,8 @@ async def download_from_bot(client: pyrogram.Client, message: pyrogram.types.Mes
         if chat_id:
             entity = await _bot.client.get_chat(chat_id)
         if entity:
-            chat_title = entity.title
+            chat_title = entity.title or entity.first_name or str(entity.id)
+            set_chat_title(entity.id, chat_title)
             reply_message = f"from {chat_title} "
             chat_download_config = ChatDownloadConfig()
             chat_download_config.last_read_message_id = start_offset_id
@@ -992,6 +1068,17 @@ async def download_from_bot(client: pyrogram.Client, message: pyrogram.types.Mes
                 task_id=_bot.gen_task_id(),
             )
             _bot.add_task_node(node)
+            save_task(
+                task_id=node.task_id,
+                chat_id=entity.id,
+                url=url,
+                start_offset_id=start_offset_id,
+                end_offset_id=end_offset_id,
+                limit=limit,
+                download_filter=download_filter,
+                from_user_id=message.from_user.id,
+                task_type="download",
+            )
             _bot.app.loop.create_task(
                 _bot.download_chat_task(_bot.client, chat_download_config, node)
             )

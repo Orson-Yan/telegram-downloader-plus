@@ -13,7 +13,8 @@ from rich.logging import RichHandler
 
 from module.app import Application, ChatDownloadConfig, DownloadStatus, TaskNode
 from module.bot import start_download_bot, stop_download_bot
-from module.download_stat import update_download_status
+from module.download_stat import load_downloads, save_downloads, set_chat_title, update_download_status
+from module.task_store import update_task_progress
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import _t
 from module.pyrogram_extension import (
@@ -236,6 +237,12 @@ async def download_media(
     media_size = 0
     _media = None
     message = await fetch_message(client, message)
+
+    # Cache chat title from message object
+    if message and message.chat:
+        chat_title = getattr(message.chat, 'title', None) or getattr(message.chat, 'first_name', None)
+        if chat_title:
+            set_chat_title(message.chat.id, chat_title)
     try:
         for _type in media_types:
             _media = getattr(message, _type, None)
@@ -348,10 +355,11 @@ def _check_config() -> bool:
             os.path.join(app.log_file_path, "download.log"),
             rotation="10 MB",
             retention="30 days",
-            level="SUCCESS",
-            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}",
-            filter=lambda record: record["extra"].get("category") == "download",
+            level=app.log_level,
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}",
         )
+
+        load_downloads()
     except Exception as e:
         logger.exception(f"load config error: {e}")
         return False
@@ -390,6 +398,11 @@ async def download_chat_task(client: pyrogram.Client, chat_download_config: Chat
         for message in skipped_messages:
             await add_download_task(message, node)
     async for message in messages_iter:
+        # Cache chat title from message
+        if message and message.chat:
+            chat_title = getattr(message.chat, 'title', None) or getattr(message.chat, 'first_name', None)
+            if chat_title:
+                set_chat_title(message.chat.id, chat_title)
         meta_data = MetaData()
         caption = message.caption
         if caption:
@@ -407,6 +420,8 @@ async def download_chat_task(client: pyrogram.Client, chat_download_config: Chat
             node.download_status[message.id] = DownloadStatus.SkipDownload
             if message.media_group_id:
                 await upload_telegram_chat(client, node.upload_user, app, node, message, DownloadStatus.SkipDownload)
+        # Update task progress for crash recovery
+        update_task_progress(node.task_id, message.id)
     chat_download_config.need_check = True
     chat_download_config.total_task = node.total_task
     node.is_running = True
@@ -448,6 +463,16 @@ async def stop_server(client: pyrogram.Client):
     await client.stop()
 
 
+async def periodic_save():
+    """Periodically save download history for crash recovery."""
+    while app.is_running:
+        await asyncio.sleep(60)
+        try:
+            save_downloads()
+        except Exception as e:
+            logger.warning(f"Periodic save failed: {e}")
+
+
 def main():
     """Main function"""
     tasks = []
@@ -463,6 +488,7 @@ def main():
         app.loop.run_until_complete(start_server(client))
         logger.success(_t("Successfully started (Press Ctrl+C to stop)"))
         app.loop.create_task(download_all_chat(client))
+        app.loop.create_task(periodic_save())
         for _ in range(app.max_download_task):
             tasks.append(app.loop.create_task(worker(client)))
         if app.bot_token:
@@ -474,6 +500,7 @@ def main():
         logger.exception("{}", e)
     finally:
         app.is_running = False
+        save_downloads()
         if app.bot_token:
             app.loop.run_until_complete(stop_download_bot())
         app.loop.run_until_complete(stop_server(client))

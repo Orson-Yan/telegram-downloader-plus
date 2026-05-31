@@ -1,8 +1,11 @@
 """Download Stat"""
 import asyncio
+import json
+import os
 import time
 from enum import Enum
 
+from loguru import logger
 from pyrogram import Client
 
 from module.app import TaskNode
@@ -22,6 +25,7 @@ _last_download_time: float = time.time()
 _download_state: DownloadState = DownloadState.Downloading
 _paused_tasks: set = set()
 _failed_downloads: list = []
+_chat_titles: dict = {}  # chat_id -> chat_title mapping
 
 
 def get_download_result() -> dict:
@@ -102,6 +106,21 @@ def get_failed_downloads() -> list:
     return _failed_downloads
 
 
+def set_chat_title(chat_id, title: str):
+    """Cache chat title for a chat_id"""
+    _chat_titles[str(chat_id)] = title
+
+
+def get_chat_title(chat_id) -> str:
+    """Get cached chat title, fallback to chat_id string"""
+    return _chat_titles.get(str(chat_id), str(chat_id))
+
+
+def get_all_chat_titles() -> dict:
+    """Get all cached chat titles"""
+    return _chat_titles.copy()
+
+
 def remove_failed_download(task_id) -> bool:
     """Remove a failed download entry by task_id"""
     global _failed_downloads
@@ -110,6 +129,26 @@ def remove_failed_download(task_id) -> bool:
         f for f in _failed_downloads if str(f.get("task_id", "")) != str(task_id)
     ]
     return len(_failed_downloads) < before
+
+
+def batch_delete_tasks(task_ids: list) -> int:
+    """Delete multiple tasks from download results. Returns count deleted."""
+    deleted = 0
+    for task_id in task_ids:
+        if delete_task(task_id):
+            deleted += 1
+    return deleted
+
+
+def batch_delete_failed(task_ids: list) -> int:
+    """Delete multiple failed downloads. Returns count deleted."""
+    global _failed_downloads
+    before = len(_failed_downloads)
+    task_id_set = {str(tid) for tid in task_ids}
+    _failed_downloads = [
+        f for f in _failed_downloads if str(f.get("task_id", "")) not in task_id_set
+    ]
+    return before - len(_failed_downloads)
 
 
 def clear_completed_downloads():
@@ -233,3 +272,76 @@ async def update_download_status(
         _total_download_speed = max(_total_download_speed, 0)
         _total_download_size = 0
         _last_download_time = cur_time
+
+
+_HISTORY_FILE = os.path.join(os.path.abspath("."), "log", "download_history.json")
+
+
+def save_downloads():
+    """Save completed and failed downloads to file for persistence."""
+    try:
+        # Build completed list from _download_result
+        completed = []
+        for chat_id, messages in _download_result.items():
+            for msg_id, value in messages.items():
+                if value["down_byte"] == value["total_size"]:
+                    completed.append({
+                        "task_id": str(value.get("task_id", "")),
+                        "chat_id": str(chat_id),
+                        "msg_id": str(msg_id),
+                        "file_name": value.get("file_name", ""),
+                        "total_size": value.get("total_size", 0),
+                        "chat_title": get_chat_title(chat_id),
+                    })
+
+        data = {
+            "completed": completed,
+            "failed": _failed_downloads,
+            "chat_titles": _chat_titles,
+        }
+
+        os.makedirs(os.path.dirname(_HISTORY_FILE), exist_ok=True)
+        with open(_HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Saved {len(completed)} completed, {len(_failed_downloads)} failed downloads")
+    except Exception as e:
+        logger.warning(f"Failed to save download history: {e}")
+
+
+def load_downloads():
+    """Load completed and failed downloads from file."""
+    global _download_result, _failed_downloads, _chat_titles
+    try:
+        if not os.path.exists(_HISTORY_FILE):
+            return
+
+        with open(_HISTORY_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Restore chat titles
+        _chat_titles = data.get("chat_titles", {})
+
+        # Restore completed downloads into _download_result
+        for item in data.get("completed", []):
+            chat_id = item.get("chat_id", "")
+            msg_id = item.get("msg_id", "")
+            if chat_id and msg_id:
+                if chat_id not in _download_result:
+                    _download_result[chat_id] = {}
+                _download_result[chat_id][msg_id] = {
+                    "down_byte": item.get("total_size", 0),
+                    "total_size": item.get("total_size", 0),
+                    "file_name": item.get("file_name", ""),
+                    "start_time": 0,
+                    "end_time": 0,
+                    "download_speed": 0,
+                    "each_second_total_download": 0,
+                    "task_id": item.get("task_id", ""),
+                }
+
+        # Restore failed downloads
+        _failed_downloads = data.get("failed", [])
+
+        logger.info(f"Loaded {len(data.get('completed', []))} completed, {len(_failed_downloads)} failed downloads")
+    except Exception as e:
+        logger.warning(f"Failed to load download history: {e}")

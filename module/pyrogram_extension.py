@@ -1055,6 +1055,17 @@ async def report_bot_status(
     """see _report_bot_status"""
     try:
         return await _report_bot_status(client, node, immediate_reply)
+    except pyrogram.errors.exceptions.flood_420.FloodWait as e:
+        wait_seconds = e.value
+        wait_minutes = wait_seconds / 60
+        logger.warning(
+            "FLOOD_WAIT: Telegram rate limit hit, need to wait {:.1f} minutes ({} seconds) before next EditMessage",
+            wait_minutes,
+            wait_seconds,
+        )
+        # Update last_reply_time to prevent immediate retry after wait
+        node.last_reply_time = time.time() + wait_seconds
+        await asyncio.sleep(wait_seconds)
     except Exception as e:
         logger.debug(f"{e}")
 
@@ -1120,9 +1131,7 @@ async def _report_bot_status(
                 if task_id != node.task_id or value["down_byte"] == value["total_size"]:
                     continue
 
-                temp_file_name = truncate_filename(
-                    os.path.basename(value["file_name"]), 10
-                )
+                temp_file_name = os.path.basename(value["file_name"])
                 progress = int(value["down_byte"] / value["total_size"] * 100)
                 download_result_str += (
                     f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
@@ -1157,6 +1166,19 @@ async def _report_bot_status(
         if upload_result_str:
             upload_result_str = f"\n📤 {_t('Upload Progresses')}:\n" + upload_result_str
 
+        # Build completed files list
+        completed_files_str = ""
+        download_result = get_download_result()
+        if node.chat_id in download_result:
+            for idx, value in download_result[node.chat_id].items():
+                task_id = value.get("task_id", "")
+                if str(task_id) == str(node.task_id) and value["down_byte"] == value["total_size"]:
+                    fname = os.path.basename(value["file_name"])
+                    fsize = format_byte(value["total_size"])
+                    completed_files_str += f"  • {fname} ({fsize})\n"
+        if completed_files_str:
+            completed_files_str = f"\n📄 {_t('Files')}:\n" + completed_files_str
+
         new_msg_str = (
             f"`\n"
             f"🆔 task id: {node.task_id}\n"
@@ -1168,7 +1190,8 @@ async def _report_bot_status(
             f"{node.forward_msg_detail_str}"
             f"{upload_msg_detail_str}"
             f"{upload_result_str}"
-            f"{download_result_str}\n`"
+            f"{download_result_str}"
+            f"{completed_files_str}\n`"
         )
 
         if new_msg_str != node.last_edit_msg:
