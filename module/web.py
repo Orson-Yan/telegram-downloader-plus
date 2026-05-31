@@ -147,7 +147,12 @@ def get_download_list():
                 else:
                     eta = f"{eta_seconds}s"
 
-            # Stable task_id: chat_id + message_id (survives restarts)
+            # Display task_id: date prefix + incremental id
+            _date_tag = datetime.datetime.fromtimestamp(
+                value.get("end_time", 0) or value.get("start_time", 0) or 0
+            ).strftime("%m%d") if (value.get("end_time") or value.get("start_time")) else ""
+            task_id_display = f"{_date_tag}-{idx}" if _date_tag else str(idx)
+            # Internal key for operations (stable across restarts)
             task_id = f"{chat_id}_{idx}"
 
             # Determine status: completed, paused, or active
@@ -169,6 +174,7 @@ def get_download_list():
 
             result.append({
                 "task_id": str(task_id),
+                "task_id_display": task_id_display,
                 "chat": str(chat_id),
                 "chat_title": chat_title,
                 "id": str(idx),
