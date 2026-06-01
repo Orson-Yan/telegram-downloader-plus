@@ -54,6 +54,7 @@ def save_task(task_id, chat_id, url, start_offset_id, end_offset_id,
             "task_type": task_type,
             "extra_data": extra_data or {},
             "status": "running",
+            "download_state": "pending",
             "last_message_id": start_offset_id,
             "created_at": time.time(),
         })
@@ -88,6 +89,33 @@ def get_running_tasks() -> list:
     with _lock:
         tasks = _load_all()
         return [t for t in tasks if t.get("status") == "running"]
+
+
+def get_pending_tasks() -> list:
+    """Get all tasks with download_state='pending' (created but not started downloading)."""
+    with _lock:
+        tasks = _load_all()
+        return [t for t in tasks if t.get("status") == "running"
+                and t.get("download_state", "pending") == "pending"]
+
+
+def get_downloading_tasks() -> list:
+    """Get all tasks with download_state='downloading' (actively downloading)."""
+    with _lock:
+        tasks = _load_all()
+        return [t for t in tasks if t.get("status") == "running"
+                and t.get("download_state") == "downloading"]
+
+
+def update_download_state(task_id, state: str):
+    """Update the download_state of a task ('pending' or 'downloading')."""
+    with _lock:
+        tasks = _load_all()
+        for task in tasks:
+            if task.get("task_id") == task_id:
+                task["download_state"] = state
+                break
+        _save_all(tasks)
 
 
 def remove_task(task_id):

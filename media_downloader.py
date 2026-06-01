@@ -14,7 +14,7 @@ from rich.logging import RichHandler
 from module.app import Application, ChatDownloadConfig, DownloadStatus, TaskNode
 from module.bot import start_download_bot, stop_download_bot
 from module.download_stat import load_downloads, save_downloads, set_chat_title, update_download_status
-from module.task_store import update_task_progress
+from module.task_store import update_task_progress, update_download_state
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import _t
 from module.pyrogram_extension import (
@@ -372,6 +372,9 @@ async def worker(client: pyrogram.client.Client):
             item = await queue.get()
             message = item[0]
             node: TaskNode = item[1]
+            # Mark task as actively downloading (no longer pending)
+            if node.task_id:
+                update_download_state(node.task_id, "downloading")
             if node.is_stop_transmission:
                 continue
             if node.client:

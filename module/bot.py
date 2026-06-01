@@ -28,7 +28,7 @@ from module.download_stat import (
     set_chat_title,
 )
 from module.filter import Filter
-from module.task_store import save_task, complete_task, get_running_tasks, update_task_progress
+from module.task_store import save_task, complete_task, get_running_tasks, update_task_progress, get_pending_tasks, update_download_state
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import Language, _t
 from module.pyrogram_extension import (
@@ -118,92 +118,114 @@ class DownloadBot:
             await asyncio.sleep(3)
 
     async def recover_tasks(self):
-        """Recover incomplete bot tasks from previous run."""
+        """Recover incomplete bot tasks from previous run.
+        
+        Two types of tasks need recovery:
+        1. 'pending' - created but never started downloading → re-queue fresh
+        2. 'downloading' - was actively downloading → re-execute (resume for forward, re-download for direct)
+        """
         try:
             await asyncio.sleep(5)  # Wait for bot to fully start
             running_tasks = get_running_tasks()
             if not running_tasks:
                 return
 
-            logger.info(f"Found {len(running_tasks)} incomplete bot tasks, recovering...")
-            for task_data in running_tasks:
-                try:
-                    task_id = task_data.get("task_id")
-                    chat_id = task_data.get("chat_id")
-                    url = task_data.get("url", "")
-                    start_offset_id = task_data.get("last_message_id", task_data.get("start_offset_id", 0))
-                    end_offset_id = task_data.get("end_offset_id", 0)
-                    limit = task_data.get("limit", 0)
-                    download_filter = task_data.get("download_filter")
-                    from_user_id = task_data.get("from_user_id")
-                    task_type = task_data.get("task_type", "download")
-                    extra_data = task_data.get("extra_data", {})
+            # Split by download_state
+            pending_tasks = [t for t in running_tasks if t.get("download_state", "pending") == "pending"]
+            downloading_tasks = [t for t in running_tasks if t.get("download_state") == "downloading"]
 
-                    task_id_display = extra_data.get("task_id_display", "") if extra_data else ""
+            if not pending_tasks and not downloading_tasks:
+                return
 
-                    # Recalculate limit from the new start
-                    if end_offset_id and start_offset_id:
-                        limit = max(0, end_offset_id - start_offset_id + 1)
+            logger.info(f"Found {len(downloading_tasks)} interrupted + {len(pending_tasks)} pending tasks, recovering...")
 
-                    chat_download_config = ChatDownloadConfig()
-                    chat_download_config.last_read_message_id = start_offset_id
-                    chat_download_config.download_filter = download_filter
+            # Phase 1: Recover actively downloading tasks first (were interrupted mid-download)
+            for task_data in downloading_tasks:
+                await self._recover_single_task(task_data)
 
-                    # For forward tasks, set upload_telegram_chat_id
-                    dst_chat_id = extra_data.get("dst_chat_id", 0) if extra_data else 0
+            # Phase 2: Re-queue pending tasks (created but never started)
+            for task_data in pending_tasks:
+                await self._recover_single_task(task_data)
 
-                    node = TaskNode(
-                        chat_id=chat_id,
-                        from_user_id=from_user_id,
-                        reply_message_id=0,  # No reply message on recovery
-                        limit=limit,
-                        start_offset_id=start_offset_id,
-                        end_offset_id=end_offset_id,
-                        bot=self.bot,
-                        task_id=task_id,
-                        upload_telegram_chat_id=dst_chat_id,
-                        task_id_display=task_id_display,
-                    )
-                    self.add_task_node(node)
-
-                    # Notify user with a progress-capable message
-                    if from_user_id and self.bot:
-                        try:
-                            from module.download_stat import get_chat_title
-                            chat_title = get_chat_title(chat_id) or str(chat_id)
-                            type_label = "转发" if task_type == "forward" else "下载"
-                            recovery_msg = await self.bot.send_message(
-                            from_user_id,
-                            f"🔄 恢复未完成任务 task: {node.task_id_display}\n"
-                            f"群组: {chat_title}\n"
-                            f"类型: {type_label}\n"
-                            f"⚙️ 正在恢复中...",
-                            )
-                            node.reply_message_id = recovery_msg.id
-                            node.reply_message = recovery_msg.text
-                            node.is_running = True
-                        except Exception as e:
-                            logger.warning(f"Failed to send recovery notification: {e}")
-                    if task_type == "forward" and dst_chat_id:
-                        # Recover forward task
-                        self.app.loop.create_task(
-                            self._recover_forward_task(task_data, node, start_offset_id)
-                        )
-                    elif task_type == "direct":
-                        # Recover direct download (single message)
-                        self.app.loop.create_task(
-                            self._recover_direct_task(task_data, node)
-                        )
-                    else:
-                        # Recover download task
-                        self.app.loop.create_task(
-                            self.download_chat_task(self.client, chat_download_config, node)
-                        )
-                    logger.info(f"Recovered {task_type} task {task_id} for chat {chat_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to recover task {task_data.get('task_id')}: {e}")
         except Exception as e:
             logger.warning(f"Task recovery failed: {e}")
+
+    async def _recover_single_task(self, task_data):
+        """Recover a single task."""
+        try:
+            task_id = task_data.get("task_id")
+            chat_id = task_data.get("chat_id")
+            start_offset_id = task_data.get("last_message_id", task_data.get("start_offset_id", 0))
+            end_offset_id = task_data.get("end_offset_id", 0)
+            limit = task_data.get("limit", 0)
+            download_filter = task_data.get("download_filter")
+            from_user_id = task_data.get("from_user_id")
+            task_type = task_data.get("task_type", "download")
+            extra_data = task_data.get("extra_data", {})
+            download_state = task_data.get("download_state", "pending")
+
+            task_id_display = extra_data.get("task_id_display", "") if extra_data else ""
+
+            # Recalculate limit from the new start
+            if end_offset_id and start_offset_id:
+                limit = max(0, end_offset_id - start_offset_id + 1)
+
+            chat_download_config = ChatDownloadConfig()
+            chat_download_config.last_read_message_id = start_offset_id
+            chat_download_config.download_filter = download_filter
+
+            # For forward tasks, set upload_telegram_chat_id
+            dst_chat_id = extra_data.get("dst_chat_id", 0) if extra_data else 0
+
+            node = TaskNode(
+                chat_id=chat_id,
+                from_user_id=from_user_id,
+                reply_message_id=0,
+                limit=limit,
+                start_offset_id=start_offset_id,
+                end_offset_id=end_offset_id,
+                bot=self.bot,
+                task_id=task_id,
+                upload_telegram_chat_id=dst_chat_id,
+                task_id_display=task_id_display,
+            )
+            self.add_task_node(node)
+
+            state_label = "中断" if download_state == "downloading" else "待执行"
+            # Notify user
+            if from_user_id and self.bot:
+                try:
+                    from module.download_stat import get_chat_title
+                    chat_title = get_chat_title(chat_id) or str(chat_id)
+                    type_label = "转发" if task_type == "forward" else "下载"
+                    recovery_msg = await self.bot.send_message(
+                        from_user_id,
+                        f"🔄 恢复{state_label}任务 task: {node.task_id_display}\n"
+                        f"群组: {chat_title}\n"
+                        f"类型: {type_label}\n"
+                        f"⚙️ 正在恢复中...",
+                    )
+                    node.reply_message_id = recovery_msg.id
+                    node.reply_message = recovery_msg.text
+                    node.is_running = True
+                except Exception as e:
+                    logger.warning(f"Failed to send recovery notification: {e}")
+
+            if task_type == "forward" and dst_chat_id:
+                self.app.loop.create_task(
+                    self._recover_forward_task(task_data, node, start_offset_id)
+                )
+            elif task_type == "direct":
+                self.app.loop.create_task(
+                    self._recover_direct_task(task_data, node)
+                )
+            else:
+                self.app.loop.create_task(
+                    self.download_chat_task(self.client, chat_download_config, node)
+                )
+            logger.info(f"Recovered {state_label} {task_type} task {task_id} for chat {chat_id}")
+        except Exception as e:
+            logger.warning(f"Failed to recover task {task_data.get('task_id')}: {e}")
 
     async def _recover_forward_task(self, task_data, node, offset_id):
         """Recover a forward task from last checkpoint."""
