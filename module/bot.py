@@ -1122,21 +1122,26 @@ async def download_forward_media(
     """
 
     if message.media and getattr(message, message.media.value):
-        # Extract source channel info for recovery
-        source_chat_id = 0
-        source_message_id = 0
-        source_chat_title = ""
+        # If forwarded from a channel/group, download from source
         if message.forward_from_chat:
             source_chat_id = message.forward_from_chat.id
             source_message_id = message.forward_from_message_id or 0
             source_chat_title = message.forward_from_chat.title or ""
 
-        await direct_download(
-            _bot, message.from_user.id, message, message, client,
-            source_chat_id=source_chat_id,
-            source_message_id=source_message_id,
-            source_chat_title=source_chat_title,
-        )
+            if source_message_id:
+                source_msg = await retry(
+                    _bot.client.get_messages,
+                    args=(source_chat_id, source_message_id),
+                )
+                if source_msg and source_msg.media:
+                    await direct_download(
+                        _bot, source_chat_id, message, source_msg, client,
+                    )
+                    return
+                # Source message deleted — fall through to direct download
+
+        # Direct upload or forward from user (no source channel info)
+        await direct_download(_bot, message.from_user.id, message, message, client)
         return
 
     await client.send_message(
