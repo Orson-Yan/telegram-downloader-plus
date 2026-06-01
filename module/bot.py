@@ -140,6 +140,8 @@ class DownloadBot:
                     task_type = task_data.get("task_type", "download")
                     extra_data = task_data.get("extra_data", {})
 
+                    task_id_display = extra_data.get("task_id_display", "") if extra_data else ""
+
                     # Recalculate limit from the new start
                     if end_offset_id and start_offset_id:
                         limit = max(0, end_offset_id - start_offset_id + 1)
@@ -161,24 +163,28 @@ class DownloadBot:
                         bot=self.bot,
                         task_id=task_id,
                         upload_telegram_chat_id=dst_chat_id,
+                        task_id_display=task_id_display,
                     )
                     self.add_task_node(node)
 
-                    # Notify user
+                    # Notify user with a progress-capable message
                     if from_user_id and self.bot:
                         try:
                             from module.download_stat import get_chat_title
                             chat_title = get_chat_title(chat_id) or str(chat_id)
                             type_label = "转发" if task_type == "forward" else "下载"
-                            await self.bot.send_message(
-                                from_user_id,
-                                f"🔄 恢复未完成任务 task: {node.task_id_display}\n"
-                                f"群组: {chat_title}\n"
-                                f"类型: {type_label}",
+                            recovery_msg = await self.bot.send_message(
+                            from_user_id,
+                            f"🔄 恢复未完成任务 task: {node.task_id_display}\n"
+                            f"群组: {chat_title}\n"
+                            f"类型: {type_label}\n"
+                            f"⚙️ 正在恢复中...",
                             )
+                            node.reply_message_id = recovery_msg.id
+                            node.reply_message = recovery_msg.text
+                            node.is_running = True
                         except Exception as e:
                             logger.warning(f"Failed to send recovery notification: {e}")
-
                     if task_type == "forward" and dst_chat_id:
                         # Recover forward task
                         self.app.loop.create_task(
