@@ -193,8 +193,14 @@
                                           x-text="task.status === 'paused' ? '已暂停' : '下载中'">
                                     </span>
                                     <span class="text-xs text-gray-400 font-medium" x-text="task.chat_title || task.chat"></span>
-                                    <span class="text-xs text-gray-300">•</span>
+                                    <span class="text-xs text-gray-300">|</span>
                                     <span class="text-xs text-gray-400 font-mono" x-text="'task: ' + (task.task_id_display || task.task_id)"></span>
+                                    <template x-if="task.created_at">
+                                        <span>
+                                            <span class="text-xs text-gray-300">|</span>
+                                            <span class="text-xs text-gray-400" x-text="'创建于 ' + task.created_at"></span>
+                                        </span>
+                                    </template>
                                 </div>
                                 <h4 class="text-sm font-medium text-gray-900 truncate" :title="task.filename" x-text="task.filename"></h4>
                                 <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">

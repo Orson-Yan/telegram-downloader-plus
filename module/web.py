@@ -161,10 +161,13 @@ def get_download_list():
             # Get chat title from cache
             chat_title = get_chat_title(chat_id)
 
-            # Format completion time
+            # Format times
             end_time = value.get("end_time", 0)
             start_time = value.get("start_time", 0)
             completed_time = ""
+            created_at = ""
+            if start_time:
+                created_at = datetime.datetime.fromtimestamp(start_time).strftime("%m-%d %H:%M:%S")
             if is_already_down:
                 ts = end_time if end_time else start_time
                 if ts:
@@ -184,28 +187,18 @@ def get_download_list():
                 "eta": eta,
                 "save_path": value["file_name"].replace("\\", "/"),
                 "status": status,
+                "start_time": start_time,
                 "end_time": end_time,
+                "created_at": created_at,
                 "completed_time": completed_time,
                 "task_id_display": value.get("task_id_display", "") or task_id,
             })
 
-    # Sort: newest task_id first
+    # Sort by time: active by start_time (newest first), completed by end_time (newest first)
     if already_down:
-        def _sort_key(x):
-            tid = x.get("task_id_display", "")
-            try:
-                return int(tid.split("-")[-1]) if "-" in tid else 0
-            except ValueError:
-                return 0
-        result.sort(key=_sort_key, reverse=True)
+        result.sort(key=lambda x: x.get("end_time", 0) or x.get("start_time", 0), reverse=True)
     else:
-        def _sort_key_active(x):
-            tid = x.get("task_id_display", "")
-            try:
-                return int(tid.split("-")[-1]) if "-" in tid else 0
-            except ValueError:
-                return 0
-        result.sort(key=_sort_key_active, reverse=True)
+        result.sort(key=lambda x: x.get("start_time", 0), reverse=True)
 
     return jsonify(result)
 
@@ -214,6 +207,8 @@ def get_download_list():
 def web_get_failed_downloads():
     """Get list of failed downloads"""
     failed = get_failed_downloads()
+    # Sort by failure timestamp, newest first
+    failed = sorted(failed, key=lambda f: f.get("timestamp", 0), reverse=True)
     result = []
     for f in failed:
         chat_id = f.get("chat_id", "")
