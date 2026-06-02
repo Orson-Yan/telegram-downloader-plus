@@ -1216,9 +1216,11 @@ async def _report_bot_status(
                 node.last_edit_msg = new_msg_str
             except pyrogram.errors.exceptions.flood_420.FloodWait as e:
                 wait_seconds = e.value
+                wait_minutes = wait_seconds / 60
                 node.flood_wait_until = time.time() + wait_seconds
                 logger.warning(
-                    "FLOOD_WAIT in edit_message: {} seconds", wait_seconds
+                    "FLOOD_WAIT in edit_message: need to wait {:.1f} minutes ({} seconds)",
+                    wait_minutes, wait_seconds,
                 )
             except Exception as e:
                 logger.debug(f"edit_message_text failed: {e}")
