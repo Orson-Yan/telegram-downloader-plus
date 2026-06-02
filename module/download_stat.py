@@ -85,6 +85,7 @@ def delete_task(task_id) -> bool:
                 del _download_result[chat_id][msg_id]
                 if not _download_result[chat_id]:
                     del _download_result[chat_id]
+                save_downloads()
                 return True
     return False
 
