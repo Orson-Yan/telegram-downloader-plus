@@ -65,23 +65,35 @@ def _cleanup_stopped_task(node):
         download_result = get_download_result()
         removed = 0
         recorded = 0
+        task_id_display = getattr(node, "task_id_display", "") or str(node.task_id)
         for chat_id, messages in list(download_result.items()):
             for msg_id, value in list(messages.items()):
                 tid = str(value.get("task_id", ""))
-                if tid != str(node.task_id) and tid != str(node.task_id_display):
+                if tid != str(node.task_id) and tid != task_id_display:
                     continue
                 total = value.get("total_size", 0)
                 down = value.get("down_byte", 0)
                 is_complete = total > 0 and down >= total
                 if not is_complete:
+                    # Build source link
+                    source_link = ""
+                    source_chat_id = value.get("source_chat_id", 0) or getattr(node, 'source_chat_id', 0)
+                    source_message_id = value.get("source_message_id", 0) or getattr(node, 'source_message_id', 0)
+                    if source_chat_id and source_message_id:
+                        if str(source_chat_id).startswith("-100"):
+                            link_id = str(source_chat_id)[4:]
+                        else:
+                            link_id = str(source_chat_id)
+                        source_link = f"https://t.me/c/{link_id}/{source_message_id}"
                     # Record in failed list before deleting
                     add_failed_download(
                         chat_id=chat_id,
                         msg_id=msg_id,
-                        task_id=str(node.task_id),
+                        task_id=task_id_display,
                         file_name=value.get("file_name", ""),
                         error_message="手动终止",
                         total_size=total,
+                        source_link=source_link,
                     )
                     recorded += 1
                 # Delete the download progress entry (both incomplete and complete)
@@ -90,19 +102,19 @@ def _cleanup_stopped_task(node):
                 _delete_download_progress(f"{chat_id}_{msg_id}")
                 removed += 1
         if removed > 0:
-            logger.info(f"Cleaned up {removed} download entries for stopped task {node.task_id_display}")
+            logger.info(f"Cleaned up {removed} download entries for stopped task {task_id_display}")
         else:
             # Fallback: even if no download_result entry, record a generic failed entry
             add_failed_download(
                 chat_id=node.chat_id,
                 msg_id=0,
-                task_id=str(node.task_id),
+                task_id=task_id_display,
                 file_name="",
                 error_message="手动终止",
                 total_size=0,
             )
     except Exception as e:
-        logger.warning(f"Failed to cleanup stopped task {node.task_id_display}: {e}")
+        logger.warning(f"Failed to cleanup stopped task {getattr(node, 'task_id_display', node.task_id)}: {e}")
 
 
 def _record_pending_failures(node):
@@ -122,10 +134,11 @@ def _record_pending_failures(node):
         # Collect existing failed composite keys to avoid duplicates
         existing_keys = {f"{f.get('chat_id', '')}_{f.get('msg_id', '')}" for f in get_failed_downloads()}
         recorded = 0
+        task_id_display = getattr(node, "task_id_display", "") or str(node.task_id)
         for chat_id, messages in list(download_result.items()):
             for msg_id, value in list(messages.items()):
                 tid = str(value.get("task_id", ""))
-                if not (tid == str(node.task_id) or tid == str(node.task_id_display)):
+                if not (tid == str(node.task_id) or tid == task_id_display):
                     continue
                 # Skip entries already recorded by download_task
                 composite_key = f"{chat_id}_{msg_id}"
@@ -135,19 +148,30 @@ def _record_pending_failures(node):
                 # (down_byte == 0 or down_byte == total_size with same timestamps
                 #  means Pyrogram progress callback never ran)
                 if value.get("down_byte", 0) < value.get("total_size", 1):
+                    # Build source link
+                    source_link = ""
+                    source_chat_id = value.get("source_chat_id", 0) or getattr(node, 'source_chat_id', 0)
+                    source_message_id = value.get("source_message_id", 0) or getattr(node, 'source_message_id', 0)
+                    if source_chat_id and source_message_id:
+                        if str(source_chat_id).startswith("-100"):
+                            link_id = str(source_chat_id)[4:]
+                        else:
+                            link_id = str(source_chat_id)
+                        source_link = f"https://t.me/c/{link_id}/{source_message_id}"
                     add_failed_download(
                         chat_id=chat_id,
                         msg_id=msg_id,
-                        task_id=str(node.task_id),
+                        task_id=task_id_display,
                         file_name=value.get("file_name", ""),
                         error_message="下载失败",
                         total_size=value.get("total_size", 0),
+                        source_link=source_link,
                     )
                     recorded += 1
         if recorded > 0:
-            logger.info(f"Recorded {recorded} pending failures for task {node.task_id_display}")
+            logger.info(f"Recorded {recorded} pending failures for task {task_id_display}")
     except Exception as e:
-        logger.warning(f"Failed to record pending failures for task {node.task_id_display}: {e}")
+        logger.warning(f"Failed to record pending failures for task {getattr(node, 'task_id_display', node.task_id)}: {e}")
 
 
 class DownloadBot:
@@ -1206,6 +1230,7 @@ async def direct_download(
     #   如需恢复旧行为，取消注释即可。
     node.source_chat_title = source_chat_title
     node.source_chat_id = source_chat_id
+    node.source_message_id = source_message_id
 
     _bot.add_task_node(node)
 
@@ -1269,6 +1294,9 @@ async def download_forward_media(
                 if source_msg and source_msg.media:
                     await direct_download(
                         _bot, source_chat_id, message, source_msg, client,
+                        source_chat_id=source_chat_id,
+                        source_message_id=source_message_id,
+                        source_chat_title=source_chat_title,
                     )
                     return
                 # Source message deleted — fall through to direct download

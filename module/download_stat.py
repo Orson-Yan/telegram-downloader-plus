@@ -90,7 +90,7 @@ def delete_task(task_id) -> bool:
     return False
 
 
-def add_failed_download(chat_id, msg_id, task_id, file_name, error_message, total_size=0):
+def add_failed_download(chat_id, msg_id, task_id, file_name, error_message, total_size=0, source_link=""):
     """Track a failed download"""
     # Remove existing entry with same (chat_id, msg_id) to deduplicate
     global _failed_downloads
@@ -106,6 +106,7 @@ def add_failed_download(chat_id, msg_id, task_id, file_name, error_message, tota
         "file_name": file_name,
         "error_message": error_message,
         "total_size": total_size,
+        "source_link": source_link,
         "timestamp": time.time(),
     })
     save_downloads()  # 失败时立即持久化
@@ -291,6 +292,7 @@ async def update_download_status(
             "task_id_display": getattr(node, "task_id_display", ""),
             "source_chat_title": getattr(node, "source_chat_title", ""),
             "source_chat_id": getattr(node, "source_chat_id", 0),
+            "source_message_id": getattr(node, "source_message_id", 0),
         }
         _total_download_size += down_byte
 

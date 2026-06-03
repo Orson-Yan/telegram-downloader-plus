@@ -229,6 +229,7 @@ def web_get_failed_downloads():
             "error_message": f.get("error_message", "Unknown error"),
             "total_size": format_byte(f.get("total_size", 0)),
             "failed_time": failed_time,
+            "source_link": f.get("source_link", ""),
         })
     return jsonify(result)
 

@@ -273,7 +273,7 @@ async def save_msg_to_file(app, chat_id: Union[int, str], message: pyrogram.type
 
 async def download_task(client: pyrogram.Client, message: pyrogram.types.Message, node: TaskNode):
     """Download and Forward media"""
-    download_status, file_name = await download_media(
+    download_status, file_name, error_message = await download_media(
         client, message, app.media_types, app.file_formats, node
     )
     # Backfill source_chat_title from cache (populated during download_media)
@@ -290,13 +290,37 @@ async def download_task(client: pyrogram.Client, message: pyrogram.types.Message
     file_size = os.path.getsize(file_name) if file_name else 0
     # Record failed downloads to the failed list for webui display
     if download_status is DownloadStatus.FailedDownload:
+        # Get task_id_display (format: MMDD-N)
+        task_id_display = getattr(node, "task_id_display", "") or str(node.task_id)
+        # Build source link from node or message
+        source_link = ""
+        if getattr(node, 'source_chat_id', 0) and getattr(node, 'source_message_id', 0):
+            # For forwarded messages, use source channel link
+            source_id = node.source_chat_id
+            if str(source_id).startswith("-100"):
+                link_id = str(source_id)[4:]
+            else:
+                link_id = str(source_id)
+            source_link = f"https://t.me/c/{link_id}/{node.source_message_id}"
+        elif message and message.chat:
+            # For direct messages, use current message link
+            chat_id_for_link = message.chat.id
+            if hasattr(message.chat, 'username') and message.chat.username:
+                source_link = f"https://t.me/{message.chat.username}/{message.id}"
+            else:
+                if str(chat_id_for_link).startswith("-100"):
+                    link_id = str(chat_id_for_link)[4:]
+                else:
+                    link_id = str(chat_id_for_link)
+                source_link = f"https://t.me/c/{link_id}/{message.id}"
         _add_failed_download(
             chat_id=node.chat_id,
             msg_id=message.id,
-            task_id=str(node.task_id),
+            task_id=task_id_display,
             file_name=file_name or "",
-            error_message="下载失败",
+            error_message=error_message or "下载失败",
             total_size=file_size,
+            source_link=source_link,
         )
     await upload_telegram_chat(
         client, node.upload_user if node.upload_user else client,
@@ -319,12 +343,15 @@ async def download_media(
     file_formats: dict,
     node: TaskNode,
 ):
-    """Download media from Telegram. Each file retried 3 times with 5s delay."""
+    """Download media from Telegram. Each file retried 3 times with 5s delay.
+    Returns: (DownloadStatus, file_name, error_message)
+    """
     file_name: str = ""
     ui_file_name: str = ""
     task_start_time: float = time.time()
     media_size = 0
     _media = None
+    error_message = ""  # Track specific error reason
     message = await fetch_message(client, message)
 
     # Cache chat title from message object
@@ -353,7 +380,7 @@ async def download_media(
                             f"id={message.id} {ui_file_name} "
                             f"{_t('already download,download skipped')}."
                         )
-                        return DownloadStatus.SkipDownload, None
+                        return DownloadStatus.SkipDownload, None, ""
                     elif file_size > 0:
                         os.remove(file_name)
                         logger.info(
@@ -362,7 +389,7 @@ async def download_media(
                             f"{file_size} != {media_size}, {_t('re-downloading')}."
                         )
             else:
-                return DownloadStatus.SkipDownload, None
+                return DownloadStatus.SkipDownload, None, ""
             break
     except Exception as e:
         logger.error(
@@ -370,9 +397,24 @@ async def download_media(
             f"{_t('could not be downloaded due to following exception')}:\n[{e}].",
             exc_info=True,
         )
-        return DownloadStatus.FailedDownload, None
+        return DownloadStatus.SkipDownload, None, ""
     if _media is None:
-        return DownloadStatus.SkipDownload, None
+        return DownloadStatus.SkipDownload, None, ""
+    # Build source link from message for failed downloads
+    source_link = ""
+    if message and message.chat:
+        chat_id_for_link = message.chat.id
+        # For private chats (user bot), use username if available
+        if hasattr(message.chat, 'username') and message.chat.username:
+            source_link = f"https://t.me/{message.chat.username}/{message.id}"
+        else:
+            # For channels/supergroups, use c/ prefix
+            # Remove -100 prefix for channels
+            if str(chat_id_for_link).startswith("-100"):
+                link_id = str(chat_id_for_link)[4:]
+            else:
+                link_id = str(chat_id_for_link)
+            source_link = f"https://t.me/c/{link_id}/{message.id}"
 
     message_id = message.id
     for retry in range(3):
@@ -386,22 +428,25 @@ async def download_media(
                 _check_download_finish(media_size, temp_download_path, ui_file_name)
                 await asyncio.sleep(0.5)
                 _move_to_download_path(temp_download_path, file_name)
-                return DownloadStatus.SuccessDownload, file_name
+                return DownloadStatus.SuccessDownload, file_name, ""
         except pyrogram.errors.exceptions.bad_request_400.BadRequest:
             _cleanup_temp_file(temp_file_name)
             logger.warning(
                 f"Message[{message.id}]: {_t('file reference expired, refetching')}..."
             )
+            error_message = "文件引用过期"
             await asyncio.sleep(RETRY_TIME_OUT)
             message = await fetch_message(client, message)
             if _check_timeout(retry, message.id):
                 logger.error(
                     f"Message[{message.id}]: {_t('file reference expired for 3 retries, download skipped.')}"
                 )
+                error_message = "文件引用过期（重试3次后失败）"
         except pyrogram.errors.exceptions.flood_420.FloodWait as wait_err:
             _cleanup_temp_file(temp_file_name)
             await asyncio.sleep(wait_err.value)
             logger.info("Message[{}]: FlowWait {}s, waiting", message.id, wait_err.value)
+            error_message = f"频率限制，等待{wait_err.value}秒"
             _check_timeout(retry, message.id)
         except TypeError:
             _cleanup_temp_file(temp_file_name)
@@ -409,11 +454,13 @@ async def download_media(
                 f"{_t('Timeout Error occurred when downloading Message')}[{message.id}], "
                 f"{_t('retrying after')} {RETRY_TIME_OUT} {_t('seconds')}"
             )
+            error_message = "下载超时"
             await asyncio.sleep(RETRY_TIME_OUT)
             if _check_timeout(retry, message.id):
                 logger.error(
                     f"Message[{message.id}]: {_t('Timing out after 3 reties, download skipped.')}"
                 )
+                error_message = "下载超时（重试3次后失败）"
         except Exception as e:
             _cleanup_temp_file(temp_file_name)
             logger.error(
@@ -421,9 +468,10 @@ async def download_media(
                 f"{_t('could not be downloaded due to following exception')}:\n[{e}].",
                 exc_info=True,
             )
+            error_message = f"下载异常: {str(e)[:100]}"
             break
     _cleanup_temp_file(temp_file_name)
-    return DownloadStatus.FailedDownload, None
+    return DownloadStatus.FailedDownload, None, error_message or "下载失败"
 
 
 def _load_config():
