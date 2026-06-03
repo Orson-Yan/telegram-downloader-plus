@@ -56,15 +56,24 @@ def _cleanup_stopped_task(node):
     1. Shows up in webui's Failed tab with '手动终止' reason
     2. Does NOT show lingering progress in the active/completed list
     3. Does NOT get recovered on next restart
+    
+    Only incomplete entries (down_byte < total_size) are recorded as failed.
+    Already-completed entries are left untouched.
     """
     try:
         from module.download_stat import get_download_result
         download_result = get_download_result()
         removed = 0
+        recorded = 0
         for chat_id, messages in list(download_result.items()):
             for msg_id, value in list(messages.items()):
                 tid = str(value.get("task_id", ""))
-                if tid == str(node.task_id) or tid == str(node.task_id_display):
+                if tid != str(node.task_id) and tid != str(node.task_id_display):
+                    continue
+                total = value.get("total_size", 0)
+                down = value.get("down_byte", 0)
+                is_complete = total > 0 and down >= total
+                if not is_complete:
                     # Record in failed list before deleting
                     add_failed_download(
                         chat_id=chat_id,
@@ -72,12 +81,14 @@ def _cleanup_stopped_task(node):
                         task_id=str(node.task_id),
                         file_name=value.get("file_name", ""),
                         error_message="手动终止",
-                        total_size=value.get("total_size", 0),
+                        total_size=total,
                     )
-                    # Delete the download progress entry
-                    _delete_download_progress(tid)
-                    _delete_download_progress(f"{chat_id}_{msg_id}")
-                    removed += 1
+                    recorded += 1
+                # Delete the download progress entry (both incomplete and complete)
+                # to remove it from active/completed list in webui
+                _delete_download_progress(tid)
+                _delete_download_progress(f"{chat_id}_{msg_id}")
+                removed += 1
         if removed > 0:
             logger.info(f"Cleaned up {removed} download entries for stopped task {node.task_id_display}")
         else:
@@ -97,29 +108,41 @@ def _cleanup_stopped_task(node):
 def _record_pending_failures(node):
     """Record failed download_status entries that weren't caught by download_task.
     
-    This catches edge cases where items were queued but never processed by worker
-    (e.g. task stopped right after add_download_task but before worker picked it up).
-    download_task already writes add_failed_download for each FailedDownload status,
-    so this only covers entries that never reached download_task.
+    The criteria: entry exists in _download_result, belongs to this task,
+    is incomplete (down_byte < total_size), AND has NEVER been touched by
+    update_download_status (start_time == end_time means Pyrogram callback 
+    never ran → never reached download_media's actual download loop).
+    Entries that were touched by download (start_time < end_time) have already
+    been handled by download_task's add_failed_download call, so we skip them
+    to avoid duplicates.
     """
     try:
-        from module.download_stat import get_download_result
+        from module.download_stat import get_download_result, get_failed_downloads
         download_result = get_download_result()
+        # Collect existing failed task_ids to avoid duplicates
+        existing_failed = {str(f.get("task_id")) for f in get_failed_downloads()}
         recorded = 0
         for chat_id, messages in list(download_result.items()):
             for msg_id, value in list(messages.items()):
                 tid = str(value.get("task_id", ""))
-                if tid == str(node.task_id) or tid == str(node.task_id_display):
-                    if value.get("down_byte", 0) < value.get("total_size", 1):
-                        add_failed_download(
-                            chat_id=chat_id,
-                            msg_id=msg_id,
-                            task_id=str(node.task_id),
-                            file_name=value.get("file_name", ""),
-                            error_message="下载失败",
-                            total_size=value.get("total_size", 0),
-                        )
-                        recorded += 1
+                if not (tid == str(node.task_id) or tid == str(node.task_id_display)):
+                    continue
+                # Skip entries already recorded by download_task
+                if tid in existing_failed:
+                    continue
+                # Only catch entries that never started downloading
+                # (down_byte == 0 or down_byte == total_size with same timestamps
+                #  means Pyrogram progress callback never ran)
+                if value.get("down_byte", 0) < value.get("total_size", 1):
+                    add_failed_download(
+                        chat_id=chat_id,
+                        msg_id=msg_id,
+                        task_id=str(node.task_id),
+                        file_name=value.get("file_name", ""),
+                        error_message="下载失败",
+                        total_size=value.get("total_size", 0),
+                    )
+                    recorded += 1
         if recorded > 0:
             logger.info(f"Recorded {recorded} pending failures for task {node.task_id_display}")
     except Exception as e:
