@@ -25,6 +25,7 @@ from module.app import (
 )
 from module.download_stat import (
     add_failed_download,
+    delete_task as _delete_download_progress,
     set_chat_title,
 )
 from module.filter import Filter
@@ -46,6 +47,51 @@ from utils.format import replace_date_time, validate_title
 from utils.meta_data import MetaData
 
 # pylint: disable = C0301, R0902
+
+
+def _cleanup_stopped_task(node):
+    """When a task is stopped by user: clear download progress and record as failed.
+    
+    This ensures the task:
+    1. Shows up in webui's Failed tab with '手动终止' reason
+    2. Does NOT show lingering progress in the active/completed list
+    3. Does NOT get recovered on next restart
+    """
+    try:
+        from module.download_stat import get_download_result
+        download_result = get_download_result()
+        removed = 0
+        for chat_id, messages in list(download_result.items()):
+            for msg_id, value in list(messages.items()):
+                tid = str(value.get("task_id", ""))
+                if tid == str(node.task_id) or tid == str(node.task_id_display):
+                    # Record in failed list before deleting
+                    add_failed_download(
+                        chat_id=chat_id,
+                        msg_id=msg_id,
+                        task_id=str(node.task_id),
+                        file_name=value.get("file_name", ""),
+                        error_message="手动终止",
+                        total_size=value.get("total_size", 0),
+                    )
+                    # Delete the download progress entry
+                    _delete_download_progress(tid)
+                    _delete_download_progress(f"{chat_id}_{msg_id}")
+                    removed += 1
+        if removed > 0:
+            logger.info(f"Cleaned up {removed} download entries for stopped task {node.task_id_display}")
+        else:
+            # Fallback: even if no download_result entry, record a generic failed entry
+            add_failed_download(
+                chat_id=node.chat_id,
+                msg_id=0,
+                task_id=str(node.task_id),
+                file_name="",
+                error_message="手动终止",
+                total_size=0,
+            )
+    except Exception as e:
+        logger.warning(f"Failed to cleanup stopped task {node.task_id_display}: {e}")
 
 
 class DownloadBot:
@@ -113,6 +159,9 @@ class DownloadBot:
                 if value.is_running and value.is_finish():
                     # Send final status update before completing
                     await report_bot_status(self.bot, value, immediate_reply=True)
+                    # If stopped by user, move download progress to failed list and clear data
+                    if value.is_stop_transmission:
+                        _cleanup_stopped_task(value)
                     complete_task(value.task_id)
                     self.remove_task_node(key)
             await asyncio.sleep(3)
