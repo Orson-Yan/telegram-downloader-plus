@@ -119,8 +119,8 @@ def _record_pending_failures(node):
     try:
         from module.download_stat import get_download_result, get_failed_downloads
         download_result = get_download_result()
-        # Collect existing failed task_ids to avoid duplicates
-        existing_failed = {str(f.get("task_id")) for f in get_failed_downloads()}
+        # Collect existing failed composite keys to avoid duplicates
+        existing_keys = {f"{f.get('chat_id', '')}_{f.get('msg_id', '')}" for f in get_failed_downloads()}
         recorded = 0
         for chat_id, messages in list(download_result.items()):
             for msg_id, value in list(messages.items()):
@@ -128,7 +128,8 @@ def _record_pending_failures(node):
                 if not (tid == str(node.task_id) or tid == str(node.task_id_display)):
                     continue
                 # Skip entries already recorded by download_task
-                if tid in existing_failed:
+                composite_key = f"{chat_id}_{msg_id}"
+                if composite_key in existing_keys:
                     continue
                 # Only catch entries that never started downloading
                 # (down_byte == 0 or down_byte == total_size with same timestamps

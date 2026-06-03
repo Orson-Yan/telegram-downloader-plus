@@ -92,10 +92,12 @@ def delete_task(task_id) -> bool:
 
 def add_failed_download(chat_id, msg_id, task_id, file_name, error_message, total_size=0):
     """Track a failed download"""
-    # Remove existing entry with same task_id
+    # Remove existing entry with same (chat_id, msg_id) to deduplicate
     global _failed_downloads
+    composite_key = f"{chat_id}_{msg_id}"
     _failed_downloads = [
-        f for f in _failed_downloads if str(f.get("task_id", "")) != str(task_id)
+        f for f in _failed_downloads
+        if f"{f.get('chat_id', '')}_{f.get('msg_id', '')}" != composite_key
     ]
     _failed_downloads.append({
         "chat_id": chat_id,
