@@ -53,6 +53,10 @@ def get_latest_release(proxy_config: dict = None) -> dict:
         logger.warning(f"{e}")
         return {}
 
+    if response.status_code != 200:
+        logger.warning(f"GitHub API returned status {response.status_code}")
+        return {}
+
     latest_release: dict = json.loads(response.text)
 
     if f"v{__version__}" != latest_release["tag_name"]:

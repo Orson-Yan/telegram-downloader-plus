@@ -1,6 +1,7 @@
 """Application module"""
 
 import asyncio
+import functools
 import os
 import time
 from asyncio import Lock
@@ -723,7 +724,8 @@ class Application:
         elif self.cloud_drive_config.upload_adapter == "aligo":
             ret = await self.loop.run_in_executor(
                 self.executor,
-                CloudDrive.aligo_upload_file(
+                functools.partial(
+                    CloudDrive.aligo_upload_file,
                     self.cloud_drive_config, self.save_path, local_file_path
                 ),
             )

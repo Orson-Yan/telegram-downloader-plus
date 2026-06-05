@@ -278,6 +278,9 @@ async def download_thumbnail(
                     )
                 else:
                     message = await fetch_message(client, message)
+                    thumbnail = message.video.thumbs[0] if message.video.thumbs else None
+                    if not thumbnail:
+                        break
                     logger.warning(
                         f"Attempt {attempt} to download thumbnail failed: {e}"
                     )
@@ -1237,11 +1240,16 @@ async def _report_bot_status(
         new_msg_str = (
             f"`\n"
             f"🆔 task: {node.task_id_display}\n"
-                        f"📥 {_t('Downloading')}\n"
-                        f"├─ 📁 {_t('Total')}: {display_total}\n"
-                        f"├─ ✅ {_t('Success')}: {display_success}\n"
-                        f"├─ ❌ {_t('Failed')}: {display_failed}\n"
-                        f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
+        )
+        if immediate_reply:
+            new_msg_str += (
+                f"📥 {_t('Downloading')}\n"
+                f"├─ 📁 {_t('Total')}: {display_total}\n"
+                f"├─ ✅ {_t('Success')}: {display_success}\n"
+                f"├─ ❌ {_t('Failed')}: {display_failed}\n"
+                f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
+            )
+        new_msg_str += (
             f"{node.forward_msg_detail_str}"
             f"{upload_msg_detail_str}"
             f"{upload_result_str}"

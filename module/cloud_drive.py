@@ -157,6 +157,8 @@ class CloudDrive:
 
                             if inspect.iscoroutinefunction(progress_callback):
                                 await func()
+                            else:
+                                func()
 
             await proc.wait()
         except Exception as e:

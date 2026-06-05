@@ -9,7 +9,9 @@
 .mypy_cache/
 .coverage
 settings.json
-
+node_modules/
+fix_*.py
+_fix_*.py
 # Distribution / packaging
 .Python
 .pytest_cache

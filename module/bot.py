@@ -259,6 +259,8 @@ class DownloadBot:
         1. 'pending' - created but never started downloading → re-queue fresh
         2. 'downloading' - was actively downloading → re-execute (resume for forward, re-download for direct)
         """
+        pending_tasks = []
+        downloading_tasks = []
         try:
             await asyncio.sleep(5)  # Wait for bot to fully start
             running_tasks = get_running_tasks()
@@ -1198,8 +1200,10 @@ async def remove_replace_advertisement_filter(
                 message.from_user.id, f"{_t('Remove filter')} : {filter_str}"
             )
         else:
-            _bot.app.replace_advertisement_list.append(filter_str)
-            await client.send_message()
+            await client.send_message(
+                message.from_user.id,
+                f"{_t('Filter not found')}: {filter_str}",
+            )
         _bot.app.update_config(True)
     except Exception as e:
         await client.send_message(
@@ -1435,6 +1439,7 @@ async def download_from_bot(client: pyrogram.Client, message: pyrogram.types.Mes
                 message.from_user.id, err, reply_to_message_id=message.id
             )
             return
+    entity = None
     try:
         chat_id, _, _ = await parse_link(_bot.client, url)
         if chat_id:
@@ -1665,7 +1670,7 @@ async def forward_message_impl(
         download_filter=download_filter,
         from_user_id=message.from_user.id,
         task_type="forward",
-        extra_data={"dst_chat_id": dst_chat_id, "dst_chat_link": dst_chat_link, "task_id_display": node.task_id_display},
+        extra_data={"dst_chat_id": node.upload_telegram_chat_id, "dst_chat_link": dst_chat_link, "task_id_display": node.task_id_display},
     )
 
     if not node.has_protected_content:
