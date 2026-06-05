@@ -1004,7 +1004,7 @@ def record_download_status(func):
 
         _download_cache[(node.chat_id, message.id)] = DownloadStatus.Downloading
 
-        status, file_name = await func(client, message, media_types, file_formats, node)
+        status, file_name, *_ = await func(client, message, media_types, file_formats, node)
 
         _download_cache[(node.chat_id, message.id)] = status
 

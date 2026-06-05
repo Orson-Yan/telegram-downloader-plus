@@ -444,14 +444,30 @@ class DownloadBot:
                 msg = await self.client.get_messages(node.chat_id, message_id)
 
             if msg and msg.media:
-                logger.info(f"Recovery: re-downloading message {message_id} for task {node.task_id}")
-                await self.add_download_task(msg, node)
-                node.is_running = True
-                # Wait for download to finish (no timeout — large files may take hours)
-                while node.total_task == 0 or node.total_download_task < node.total_task:
-                    await asyncio.sleep(3)
-                    if node.is_stop_transmission:
-                        break
+                # Check if file already exists in download history
+                from module.download_stat import get_download_result
+                _dlr = get_download_result()
+                _exists = False
+                if str(node.chat_id) in _dlr:
+                    for _mid, _val in _dlr[str(node.chat_id)].items():
+                        if _val.get("task_id") == node.task_id and _val.get("down_byte", 0) > 0 and _val.get("down_byte") == _val.get("total_size"):
+                            _exists = True
+                            break
+                if not _exists:
+                    logger.info(f"Recovery: re-downloading message {message_id} for task {node.task_id}")
+                    await self.add_download_task(msg, node)
+                    node.is_running = True
+                    # Wait for download to finish (no timeout — large files may take hours)
+                    while node.total_task == 0 or node.total_download_task < node.total_task:
+                        await asyncio.sleep(3)
+                        if node.is_stop_transmission:
+                            break
+                else:
+                    logger.info(f"Recovery: file already exists for task {node.task_id}, marking complete")
+                    node.total_task = 1
+                    node.total_download_task = 1
+                    node.success_download_task = 1
+                    success = True
                 # Check if download actually succeeded
                 if node.success_download_task > 0:
                     success = True
