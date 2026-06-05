@@ -338,8 +338,8 @@ async def download_task(client: pyrogram.Client, message: pyrogram.types.Message
         try:
             from module.task_store import complete_task as _ct
             _ct(node.task_id)
-        except Exception:
-            pass
+        except Exception as e:
+                    logger.warning(f"Failed to complete task {node.task_id}: {e}")
 
 
 @record_download_status

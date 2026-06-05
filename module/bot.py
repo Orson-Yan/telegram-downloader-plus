@@ -245,6 +245,10 @@ class DownloadBot:
                     # download_task (e.g. messages that were queued but never processed)
                     if not value.is_stop_transmission and value.failed_download_task > 0:
                         _record_pending_failures(value)
+                    # Safety net: if media_downloader's immediate complete_task failed,
+                    # ensure task is marked complete before removal
+                    from module.task_store import complete_task
+                    complete_task(value.task_id)
                     self.remove_task_node(key)
             await asyncio.sleep(3)
 
@@ -449,7 +453,7 @@ class DownloadBot:
                 _exists = False
                 if str(node.chat_id) in _dlr:
                     for _mid, _val in _dlr[str(node.chat_id)].items():
-                        if _val.get("task_id") == node.task_id and _val.get("down_byte", 0) > 0 and _val.get("down_byte") == _val.get("total_size"):
+                        if str(_val.get("task_id")) == str(node.task_id) and _val.get("down_byte", 0) > 0 and _val.get("down_byte") == _val.get("total_size"):
                             _exists = True
                             break
                 if not _exists:
