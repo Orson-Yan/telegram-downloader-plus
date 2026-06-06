@@ -1002,7 +1002,7 @@ def record_download_status(func):
         node: TaskNode,
     ):
         if _download_cache[(node.chat_id, message.id)] is DownloadStatus.Downloading:
-            return DownloadStatus.Downloading, None
+                    return DownloadStatus.Downloading, None, ""
 
         _download_cache[(node.chat_id, message.id)] = DownloadStatus.Downloading
 
