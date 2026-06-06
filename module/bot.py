@@ -1316,6 +1316,13 @@ async def direct_download(
 
     node.is_running = True
 
+    # Immediately update bot message to show initial 0% progress
+    try:
+        from module.pyrogram_extension import report_bot_status
+        await report_bot_status(node.bot, node, immediate_reply=True)
+    except Exception as e:
+        logger.warning(f"Failed to send initial progress report: {e}")
+
 
 async def download_forward_media(
     client: pyrogram.Client, message: pyrogram.types.Message
