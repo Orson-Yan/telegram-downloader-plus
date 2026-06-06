@@ -454,8 +454,8 @@ class DownloadBot:
                 from module.download_stat import get_download_result
                 _dlr = get_download_result()
                 _exists = False
-                if str(node.chat_id) in _dlr:
-                    for _mid, _val in _dlr[str(node.chat_id)].items():
+                if node.chat_id in _dlr:
+                    for _mid, _val in _dlr[node.chat_id].items():
                         if str(_val.get("task_id")) == str(node.task_id) and _val.get("down_byte", 0) > 0 and _val.get("down_byte") == _val.get("total_size"):
                             _exists = True
                             break
@@ -1295,10 +1295,9 @@ async def direct_download(
                 initial_total = getattr(media_obj, "file_size", 0)
                 if initial_total and initial_total > 0:
                     dr = get_download_result()
-                    cid = str(chat_id)
-                    if cid not in dr:
-                        dr[cid] = {}
-                    dr[cid][str(download_message.id)] = {
+                    if chat_id not in dr:
+                        dr[chat_id] = {}
+                    dr[chat_id][download_message.id] = {
                         "down_byte": 0,
                         "total_size": initial_total,
                         "file_name": getattr(media_obj, "file_name", "") or "",

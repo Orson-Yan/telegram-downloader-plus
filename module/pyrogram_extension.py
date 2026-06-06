@@ -1002,7 +1002,7 @@ def record_download_status(func):
         node: TaskNode,
     ):
         if _download_cache[(node.chat_id, message.id)] is DownloadStatus.Downloading:
-                    return DownloadStatus.Downloading, None, ""
+            return DownloadStatus.Downloading, None, ""
 
         _download_cache[(node.chat_id, message.id)] = DownloadStatus.Downloading
 
@@ -1202,7 +1202,8 @@ async def _report_bot_status(
                         failed_files_str += f"  • {fname} — {err}\n"
             except Exception as e:
                 logger.warning(f"Failed to read failed download data for status report: {e}")
-            failed_files_str = f"\n❌ {_t('Failed')}:\n" + failed_files_str
+            if failed_files_str:
+                failed_files_str = f"\n❌ {_t('Failed')}:\n" + failed_files_str
         if completed_files_str:
             completed_files_str = f"\n📄 {_t('Files')}:\n" + completed_files_str
 
