@@ -1302,6 +1302,8 @@ async def _report_bot_status(
                 )
             except pyrogram.errors.exceptions.bad_request_400.MessageNotModified:
                 pass
+            except pyrogram.errors.exceptions.bad_request_400.MessageIdInvalid:
+                pass
             except Exception as e:
                 logger.debug(f"edit_message_text failed: {e}")
 
