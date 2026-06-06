@@ -130,6 +130,11 @@ def get_download_list():
 
             if already_down and not is_already_down:
                 continue
+            if not already_down:
+                # 在活跃列表中，过滤掉还没真正开始下载的条目
+                # (down_byte==0 且 start_time==end_time 表示 Pyrogram 回调还没触发)
+                if value["down_byte"] == 0 and value.get("start_time", 0) == value.get("end_time", 0):
+                    continue
 
             progress = round(value["down_byte"] / value["total_size"] * 100, 1) if value["total_size"] > 0 else 0
             download_speed = format_byte(value["download_speed"]) + "/s"
