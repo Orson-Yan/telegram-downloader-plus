@@ -440,6 +440,8 @@ async def _async_retry_download(chat_id, msg_id):
         except (ValueError, TypeError):
             cid = chat_id
 
+        from module.bot import _bot
+
         client = _bot.client
         if not client:
             logger.error("Retry failed: _bot.client is not available")
