@@ -352,6 +352,62 @@ def web_retry_task():
         return jsonify({"code": "0", "message": f"重试失败: {str(e)}"})
 
 
+@_flask_app.route("/batch_retry", methods=["POST"])
+def web_batch_retry():
+    """Batch retry multiple failed downloads"""
+    data = request.get_json(silent=True)
+    if not data or "task_ids" not in data:
+        return jsonify({"code": "0", "message": "task_ids required"})
+
+    task_ids = data["task_ids"]
+    if not isinstance(task_ids, list):
+        return jsonify({"code": "0", "message": "task_ids must be a list"})
+
+    failed_list = get_failed_downloads()
+    queued = 0
+    errors = []
+
+    for task_id in task_ids:
+        target = None
+        for f in failed_list:
+            if str(f.get("task_id", "")) == str(task_id):
+                target = f
+                break
+
+        if not target:
+            errors.append(f"{task_id}: not found")
+            continue
+
+        chat_id = target.get("chat_id")
+        msg_id = target.get("msg_id")
+        if not chat_id or not msg_id:
+            errors.append(f"{task_id}: incomplete data")
+            continue
+
+        # Remove from failed list first
+        remove_failed_download(task_id)
+
+        # Submit async retry
+        try:
+            if _app and _app.loop:
+                asyncio.run_coroutine_threadsafe(
+                    _async_retry_download(chat_id, msg_id),
+                    _app.loop,
+                )
+                queued += 1
+            else:
+                errors.append(f"{task_id}: app not initialized")
+        except Exception as e:
+            errors.append(f"{task_id}: {str(e)}")
+
+    return jsonify({
+        "code": "1",
+        "message": f"已加入重试队列 {queued} 个任务" + (f"，{len(errors)} 个失败" if errors else ""),
+        "queued": queued,
+        "errors": errors,
+    })
+
+
 @_flask_app.route("/get_pending_list")
 def web_get_pending_list():
     """Get list of pending tasks (received but not started downloading)"""
@@ -464,6 +520,21 @@ async def _async_retry_download(chat_id, msg_id):
             task_id=_bot.gen_task_id(),
         )
         _bot.add_task_node(node)
+
+        # Persist to bot_tasks.json so the task survives container restarts
+        from module.task_store import save_task as _save_task
+        _save_task(
+            task_id=node.task_id,
+            chat_id=cid,
+            url="",
+            start_offset_id=0,
+            end_offset_id=0,
+            limit=1,
+            download_filter=None,
+            from_user_id=cid,
+            task_type="download",
+            extra_data={"task_id_display": node.task_id_display},
+        )
 
         from media_downloader import add_download_task as _add_download_task
         await _add_download_task(msg, node)
