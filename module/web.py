@@ -397,6 +397,7 @@ def web_batch_retry():
 
         chat_id = target.get("chat_id")
         msg_id = target.get("msg_id")
+        from_user_id = target.get("from_user_id", "") or ""
         if not chat_id or not msg_id:
             errors.append(f"{task_id}: incomplete data")
             continue
@@ -404,26 +405,11 @@ def web_batch_retry():
         # Remove from failed list first
         remove_failed_download(task_id)
 
-        # Immediately insert a placeholder into bot_tasks.json so WebUI sees it
-        from module.task_store import save_task as _save_placeholder
-        _save_placeholder(
-            task_id=f"retry_{task_id}",
-            chat_id=int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id,
-            url="",
-            start_offset_id=0,
-            end_offset_id=0,
-            limit=1,
-            download_filter=None,
-            from_user_id=from_user_id or (int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id),
-            task_type="retry",
-            extra_data={"source_task_id": task_id, "msg_id": msg_id, "pending": True},
-        )
-
         # Submit async retry
         try:
             if _app and _app.loop:
                 asyncio.run_coroutine_threadsafe(
-                    _async_retry_download(chat_id, msg_id, from_user_id, placeholder_task_id=f"retry_{task_id}"),
+                    _async_retry_download(chat_id, msg_id, from_user_id),
                     _app.loop,
                 )
                 queued += 1
@@ -519,7 +505,7 @@ def web_remove_pending():
     return jsonify({"code": "1", "message": "removed"})
 
 
-async def _async_retry_download(chat_id, msg_id, from_user_id="", placeholder_task_id=""):
+async def _async_retry_download(chat_id, msg_id, from_user_id=""):
     """Async helper: fetch the message and re-add to download queue"""
     logger = logging.getLogger("web.retry")
     try:
@@ -567,11 +553,6 @@ async def _async_retry_download(chat_id, msg_id, from_user_id="", placeholder_ta
             task_type="download",
             extra_data={"task_id_display": node.task_id_display},
         )
-
-        # Remove placeholder if this was a batch retry
-        if placeholder_task_id:
-            from module.task_store import remove_task as _remove_placeholder
-            _remove_placeholder(placeholder_task_id)
 
         from media_downloader import add_download_task as _add_download_task
         await _add_download_task(msg, node)
