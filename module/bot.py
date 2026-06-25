@@ -1839,63 +1839,6 @@ async def start_message_monitor():
             logger.exception(f"Error in message monitor: {e}")
 
         await asyncio.sleep(60)  # 每60秒检查一次
-async def _consume_pending_tasks():
-    """Periodically consume pending download tasks from bot_tasks.json.
-    Runs every 5 seconds.
-    """
-    import logging
-    logger = logging.getLogger("bot.pending")
-    while _bot.is_running:
-        try:
-            from module.task_store import get_pending_tasks, update_download_state, remove_task
-            from media_downloader import add_download_task
-            pending = get_pending_tasks()
-            for task_data in pending:
-                task_id = task_data.get("task_id")
-                if not task_id:
-                    continue
-                chat_id = task_data.get("chat_id")
-                extra = task_data.get("extra_data", {}) or {}
-                msg_id = extra.get("msg_id")
-                if not chat_id or not msg_id:
-                    continue
-
-                client = _bot.client
-                if not client:
-                    continue
-                try:
-                    cid = int(chat_id)
-                except (ValueError, TypeError):
-                    cid = chat_id
-                try:
-                    msg = await client.get_messages(cid, int(msg_id))
-                except Exception:
-                    continue
-                if not msg or msg.empty:
-                    logger.warning(f"Pending consumer: msg {msg_id} not found in chat {cid}, removing")
-                    remove_task(task_id)
-                    continue
-
-                node = _bot.task_node.get(int(task_id)) if str(task_id).isdigit() else _bot.task_node.get(task_id)
-                if not node:
-                    from module.app import TaskNode
-                    node = TaskNode(
-                        chat_id=cid,
-                        from_user_id=chat_id,
-                        reply_message_id=0,
-                        limit=1,
-                        bot=_bot.bot,
-                        task_id=task_id,
-                    )
-                    _bot.add_task_node(node)
-
-                update_download_state(task_id, "downloading")
-                await add_download_task(msg, node)
-                node.is_running = True
-
-        except Exception as e:
-            logger.warning(f"Pending consumer error: {e}")
-        await asyncio.sleep(5)
 
 
 async def set_listen_forward_msg(
@@ -1938,9 +1881,6 @@ async def set_listen_forward_msg(
 
     if not hasattr(_bot, "monitor_task") or _bot.monitor_task is None:
         _bot.monitor_task = _bot.app.loop.create_task(start_message_monitor())
-    # Start pending task consumer
-    if not hasattr(_bot, "pending_consumer_task") or _bot.pending_consumer_task is None:
-        _bot.pending_consumer_task = _bot.app.loop.create_task(_consume_pending_tasks())
 
 
 async def stop(client: pyrogram.Client, message: pyrogram.types.Message):

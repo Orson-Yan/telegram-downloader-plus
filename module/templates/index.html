@@ -93,60 +93,60 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6">
             <nav class="flex gap-0" role="tablist">
                 <button
-                    @click="activeTab = 'active'; selectedTasks = []"
-                    class="px-4 py-3 text-sm font-medium transition-colors relative"
-                    :class="activeTab === 'active' ? 'tab-active' : 'tab-inactive'"
-                    role="tab"
-                >
-                    <span class="flex items-center gap-2">
-                        下载中
-                        <span x-show="activeTasks.length > 0"
-                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-blue-500 text-white min-w-[1.5rem] justify-center"
-                              x-text="activeTasks.length"></span>
-                    </span>
-                </button>
-                <button
-                    @click="activeTab = 'pending'; selectedTasks = []"
-                    class="px-4 py-3 text-sm font-medium transition-colors relative"
-                    :class="activeTab === 'pending' ? 'tab-active' : 'tab-inactive'"
-                    role="tab"
-                >
-                    <span class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        待下载
-                        <span x-show="pendingTasks.length > 0"
-                              class="pulse-badge inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-amber-500 text-white min-w-[1.5rem] justify-center"
-                              x-text="pendingTasks.length"></span>
-                    </span>
-                </button>
-                <button
-                    @click="activeTab = 'completed'; selectedTasks = []"
-                    class="px-4 py-3 text-sm font-medium transition-colors relative"
-                    :class="activeTab === 'completed' ? 'tab-active' : 'tab-inactive'"
-                    role="tab"
-                >
-                    <span class="flex items-center gap-2">
-                        已完成
-                        <span x-show="completedTasks.length > 0"
-                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-green-500 text-white min-w-[1.5rem] justify-center"
-                              x-text="completedTasks.length"></span>
-                    </span>
-                </button>
-                <button
-                    @click="activeTab = 'failed'; selectedTasks = []"
-                    class="px-4 py-3 text-sm font-medium transition-colors relative"
-                    :class="activeTab === 'failed' ? 'tab-active' : 'tab-inactive'"
-                    role="tab"
-                >
-                    <span class="flex items-center gap-2">
-                        失败
-                        <span x-show="failedTasks.length > 0"
-                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-red-500 text-white min-w-[1.5rem] justify-center"
-                              x-text="failedTasks.length"></span>
-                    </span>
-                </button>
+                                    @click="activeTab = 'active'; selectedTasks = []"
+                                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                                    :class="activeTab === 'active' ? 'tab-active' : 'tab-inactive'"
+                                    role="tab"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        下载中
+                                        <span x-show="activeTasks.length > 0"
+                                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-blue-500 text-white min-w-[1.5rem] justify-center"
+                                              x-text="activeTasks.length"></span>
+                                    </span>
+                                </button>
+                                <button
+                                    @click="activeTab = 'pending'; selectedTasks = []"
+                                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                                    :class="activeTab === 'pending' ? 'tab-active' : 'tab-inactive'"
+                                    role="tab"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        待下载
+                                        <span x-show="pendingTasks.length > 0"
+                                              class="pulse-badge inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-amber-500 text-white min-w-[1.5rem] justify-center"
+                                              x-text="pendingTasks.length"></span>
+                                    </span>
+                                </button>
+                                <button
+                                    @click="activeTab = 'completed'; selectedTasks = []"
+                                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                                    :class="activeTab === 'completed' ? 'tab-active' : 'tab-inactive'"
+                                    role="tab"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        已完成
+                                        <span x-show="completedTasks.length > 0"
+                                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-green-500 text-white min-w-[1.5rem] justify-center"
+                                              x-text="completedTasks.length"></span>
+                                    </span>
+                                </button>
+                                <button
+                                    @click="activeTab = 'failed'; selectedTasks = []"
+                                    class="px-4 py-3 text-sm font-medium transition-colors relative"
+                                    :class="activeTab === 'failed' ? 'tab-active' : 'tab-inactive'"
+                                    role="tab"
+                                >
+                                    <span class="flex items-center gap-2">
+                                        失败
+                                        <span x-show="failedTasks.length > 0"
+                                              class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-md bg-red-500 text-white min-w-[1.5rem] justify-center"
+                                              x-text="failedTasks.length"></span>
+                                    </span>
+                                </button>
             </nav>
         </div>
     </div>
@@ -203,7 +203,7 @@
             </div>
 
             <!-- Active Task Cards -->
-                        <div class="space-y-3" id="scroll-area-active">
+            <div class="space-y-3">
                 <template x-for="task in activeTasks" :key="task.task_id">
                     <div class="checkbox-row card-hover rounded-xl p-4 border fade-in bg-white shadow-sm"
                          :class="task.status === 'paused' ? 'border-amber-200' : 'border-gray-100'"
@@ -335,7 +335,7 @@
             </div>
 
             <!-- Pending Task Cards -->
-                        <div class="space-y-3" id="scroll-area-pending">
+            <div class="space-y-3">
                 <template x-for="(task, idx) in pendingTasks" :key="task.task_id">
                     <div class="checkbox-row card-hover rounded-xl p-4 border border-amber-200 bg-white shadow-sm fade-in"
                          :class="idx === 0 ? 'ring-1 ring-amber-300' : ''"
@@ -439,8 +439,8 @@
             </div>
 
             <!-- Completed Task Cards -->
-                        <div class="space-y-3" id="scroll-area-completed">
-                            <template x-for="task in completedTasks" :key="task.task_id">
+            <div class="space-y-3">
+                <template x-for="task in completedTasks" :key="task.task_id">
                     <div class="checkbox-row card-hover bg-white rounded-xl p-4 border border-gray-100 fade-in shadow-sm">
                         <div class="flex items-start gap-3">
                             <!-- Checkbox -->
@@ -503,7 +503,6 @@
                         </div>
                     </div>
                 </template>
-                                </div>
             </div>
         </div>
 
@@ -532,8 +531,8 @@
             </div>
 
             <!-- Failed Task Cards -->
-                        <div class="space-y-3" id="scroll-area-failed">
-                            <template x-for="task in failedTasks" :key="task.task_id">
+            <div class="space-y-3">
+                <template x-for="task in failedTasks" :key="task.task_id">
                     <div class="checkbox-row card-hover bg-white rounded-xl p-4 border border-red-100 fade-in shadow-sm">
                         <div class="flex items-start gap-3">
                             <!-- Checkbox -->
@@ -600,9 +599,14 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
+                                </button>
                             </div>
                         </div>
-                    </main>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </main>
 
     <!-- Toast Notification -->
     <div x-show="toast.show" x-transition:enter="toast-enter" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
@@ -618,262 +622,262 @@
 
     <script>
     function app() {
-            return {
-                activeTab: 'active',
-                version: '',
-                downloadSpeed: '0.00 B/s',
-                isDownloading: true,
-                activeTasks: [],
-                completedTasks: [],
-                failedTasks: [],
-                pendingTasks: [],
-                allTasks: [],
-                selectedTasks: [],
-                toast: { show: false, message: '', type: 'success' },
-                pollTimer: null,
+        return {
+            activeTab: 'active',
+            version: '',
+            downloadSpeed: '0.00 B/s',
+            isDownloading: true,
+            activeTasks: [],
+            completedTasks: [],
+            failedTasks: [],
+            pendingTasks: [],
+            allTasks: [],
+            selectedTasks: [],
+            toast: { show: false, message: '', type: 'success' },
+            pollTimer: null,
 
-
-                async init() {
-                    await this.fetchVersion();
-                    await this.fetchDownloadState();
-                    await this.fetchActive();
-                    await this.fetchPending();
-                    await this.fetchCompleted();
-                    this.pollTimer = setInterval(() => {
-                        this.fetchDownloadStatus();
-                        this.fetchActive();
-                    }, 1500);
-                    this.pendingPollTimer = setInterval(() => {
-                        this.fetchPending();
-                    }, 5000);
+            async init() {
+                await this.fetchVersion();
+                await this.fetchDownloadState();
+                await this.fetchActive();
+                await this.fetchPending();
+                await this.fetchCompleted();
+                this.pollTimer = setInterval(() => {
+                    this.fetchDownloadStatus();
+                    this.fetchActive();
+                }, 1500);
+                // Pending list refreshes every 5 seconds
+                this.pendingPollTimer = setInterval(() => {
+                    this.fetchPending();
+                }, 5000);
+                // Completed list refreshes less frequently
                 this.completedPollTimer = setInterval(() => {
-                        this.fetchPending();
-                        this.fetchCompleted();
-                        this.fetchFailed();
-                    }, 10000);
-                },
+                    this.fetchCompleted();
+                }, 10000);
+            },
 
-                async fetchVersion() {
-                    try {
-                        const res = await fetch('/get_app_version');
-                        this.version = await res.text();
-                    } catch(e) {
-                        this.version = '?';
-                    }
-                },
-
-                async fetchDownloadStatus() {
-                    try {
-                        const res = await fetch('/get_download_status');
-                        const data = await res.json();
-                        this.downloadSpeed = data.download_speed;
-                    } catch(e) {}
-                },
-
-                async fetchDownloadState() {
-                    try {
-                        const res = await fetch('/get_download_state');
-                        const state = await res.text();
-                        this.isDownloading = (state === 'downloading');
-                    } catch(e) {}
-                },
-
-                async fetchActive() {
-                    try {
-                        const res = await fetch('/get_download_list?already_down=false');
-                        const data = await res.json();
-                        this.activeTasks = data.filter(t => t.download_progress_raw < 100);
-                    } catch(e) {}
-                },
-
-                async fetchCompleted() {
-                    try {
-                        const res = await fetch('/get_download_list?already_down=true');
-                        const data = await res.json();
-                        this.completedTasks = (data.tasks || data).filter(t => t.download_progress_raw >= 100);
-                    } catch(e) {}
-                },
-                async fetchPending() {
-                    try {
-                        const res = await fetch('/get_pending_list');
-                        const data = await res.json();
-                        this.pendingTasks = data;
-                    } catch(e) {}
-                },
-                async fetchFailed() {
-                    try {
-                        const res = await fetch('/get_failed_downloads');
-                        const data = await res.json();
-                        this.failedTasks = data;
-                    } catch(e) {}
-                },
-
-                async toggleGlobalPause() {
-                    try {
-                        const wasDownloading = this.isDownloading;
-                        const state = wasDownloading ? 'pause' : 'continue';
-                        const res = await fetch('/set_download_state?state=' + state, { method: 'POST' });
-                        const newState = await res.text();
-                        this.isDownloading = (newState === 'pause');
-                        this.showToast(
-                            wasDownloading ? '已全部暂停' : '已全部继续',
-                            'info'
-                        );
-                    } catch(e) {
-                        this.showToast('操作失败', 'error');
-                    }
-                },
-
-                async removePending(taskId) {
-                    try {
-                        const res = await fetch('/remove_pending?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('已移除待下载任务', 'success');
-                            this.fetchPending();
-                        } else {
-                            this.showToast(data.message || '移除失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                toggleSelect(taskId) {
-                    const idx = this.selectedTasks.indexOf(taskId);
-                    if (idx === -1) {
-                        this.selectedTasks.push(taskId);
-                    } else {
-                        this.selectedTasks.splice(idx, 1);
-                    }
-                },
-
-                toggleSelectAll(tab) {
-                    let tasks;
-                    if (tab === 'active') tasks = this.activeTasks;
-                    else if (tab === 'pending') tasks = this.pendingTasks;
-                    else if (tab === 'completed') tasks = this.completedTasks;
-                    else tasks = this.failedTasks;
-
-                    const allIds = tasks.map(t => t.task_id);
-                    if (this.selectedTasks.length === allIds.length) {
-                        this.selectedTasks = [];
-                    } else {
-                        this.selectedTasks = [...allIds];
-                    }
-                },
-
-                async batchDelete() {
-                    if (this.selectedTasks.length === 0) return;
-                    try {
-                        const res = await fetch('/batch_delete', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ task_ids: this.selectedTasks })
-                        });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('已删除 ' + data.deleted + ' 个任务', 'success');
-                            this.selectedTasks = [];
-                            this.fetchActive(); this.fetchCompleted();
-                        } else {
-                            this.showToast(data.message || '删除失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                async batchRetry() {
-                    if (this.selectedTasks.length === 0) return;
-                    try {
-                        const res = await fetch('/batch_retry', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ task_ids: this.selectedTasks })
-                        });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast(data.message || '已加入重试队列', 'success');
-                            this.selectedTasks = [];
-                            this.fetchActive(); this.fetchCompleted();
-                            this.fetchPending(); this.fetchFailed();
-                        } else {
-                            this.showToast(data.message || '批量重试失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                async pauseTask(taskId) {
-                    try {
-                        const res = await fetch('/pause_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('任务已暂停', 'info');
-                        } else {
-                            this.showToast(data.message || '暂停失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                async resumeTask(taskId) {
-                    try {
-                        const res = await fetch('/resume_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('任务已继续', 'success');
-                        } else {
-                            this.showToast(data.message || '继续失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                async deleteTask(taskId) {
-                    try {
-                        const res = await fetch('/delete_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('任务已删除', 'success');
-                            this.fetchActive(); this.fetchCompleted();
-                        } else {
-                            this.showToast(data.message || '删除失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                async retryTask(taskId) {
-                    try {
-                        const res = await fetch('/retry_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
-                        const data = await res.json();
-                        if (data.code === '1') {
-                            this.showToast('已加入重试队列', 'success');
-                            this.fetchActive(); this.fetchCompleted();
-                            this.fetchPending(); this.fetchFailed();
-                        } else {
-                            this.showToast(data.message || '重试失败', 'error');
-                        }
-                    } catch(e) {
-                        this.showToast('网络错误', 'error');
-                    }
-                },
-
-                showToast(message, type = 'success') {
-                    this.toast = { show: true, message, type };
-                    setTimeout(() => {
-                        this.toast.show = false;
-                    }, 2500);
+            async fetchVersion() {
+                try {
+                    const res = await fetch('/get_app_version');
+                    this.version = await res.text();
+                } catch(e) {
+                    this.version = '?';
                 }
+            },
+
+            async fetchDownloadStatus() {
+                try {
+                    const res = await fetch('/get_download_status');
+                    const data = await res.json();
+                    this.downloadSpeed = data.download_speed;
+                } catch(e) {}
+            },
+
+            async fetchDownloadState() {
+                try {
+                    const res = await fetch('/get_download_state');
+                    const state = await res.text();
+                    this.isDownloading = (state === 'downloading');
+                } catch(e) {}
+            },
+
+            async fetchActive() {
+                try {
+                    const res = await fetch('/get_download_list?already_down=false');
+                    const data = await res.json();
+                    this.activeTasks = data.filter(t => t.download_progress_raw < 100);
+                } catch(e) {}
+            },
+
+            async fetchCompleted() {
+                try {
+                    const res = await fetch('/get_download_list?already_down=true');
+                    const data = await res.json();
+                    const newCompleted = data.filter(t => t.download_progress_raw >= 100);
+                    // Only update if data actually changed (avoid unnecessary re-render)
+                    if (JSON.stringify(newCompleted) !== JSON.stringify(this.completedTasks)) {
+                        this.completedTasks = newCompleted;
+                    }
+                    const failedRes = await fetch('/get_failed_downloads');
+                    const failedData = await failedRes.json();
+                    this.failedTasks = failedData;
+                } catch(e) {}
+            },
+
+            async fetchPending() {
+                try {
+                    const res = await fetch('/get_pending_list');
+                    const data = await res.json();
+                    this.pendingTasks = data;
+                } catch(e) {}
+            },
+
+            async removePending(taskId) {
+                try {
+                    const res = await fetch('/remove_pending?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('已移除待下载任务', 'success');
+                        this.fetchPending();
+                    } else {
+                        this.showToast(data.message || '移除失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async toggleGlobalPause() {
+                try {
+                    const wasDownloading = this.isDownloading;
+                    const state = wasDownloading ? 'pause' : 'continue';
+                    const res = await fetch('/set_download_state?state=' + state, { method: 'POST' });
+                    const newState = await res.text();
+                    this.isDownloading = (newState === 'pause');
+                    this.showToast(
+                        wasDownloading ? '已全部暂停' : '已全部继续',
+                        'info'
+                    );
+                } catch(e) {
+                    this.showToast('操作失败', 'error');
+                }
+            },
+
+            toggleSelect(taskId) {
+                const idx = this.selectedTasks.indexOf(taskId);
+                if (idx === -1) {
+                    this.selectedTasks.push(taskId);
+                } else {
+                    this.selectedTasks.splice(idx, 1);
+                }
+            },
+
+            toggleSelectAll(tab) {
+                let tasks;
+                if (tab === 'active') tasks = this.activeTasks;
+                else if (tab === 'pending') tasks = this.pendingTasks;
+                else if (tab === 'completed') tasks = this.completedTasks;
+                else tasks = this.failedTasks;
+
+                const allIds = tasks.map(t => t.task_id);
+                if (this.selectedTasks.length === allIds.length) {
+                    this.selectedTasks = [];
+                } else {
+                    this.selectedTasks = [...allIds];
+                }
+            },
+
+            async batchDelete() {
+                if (this.selectedTasks.length === 0) return;
+                try {
+                    const res = await fetch('/batch_delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ task_ids: this.selectedTasks })
+                    });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('已删除 ' + data.deleted + ' 个任务', 'success');
+                        this.selectedTasks = [];
+                        this.fetchActive(); this.fetchCompleted();
+                    } else {
+                        this.showToast(data.message || '删除失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async batchRetry() {
+                if (this.selectedTasks.length === 0) return;
+                try {
+                    const res = await fetch('/batch_retry', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ task_ids: this.selectedTasks })
+                    });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast(data.message || '已加入重试队列', 'success');
+                        this.selectedTasks = [];
+                        this.fetchActive(); this.fetchCompleted();
+                        this.fetchPending(); this.fetchFailed();
+                    } else {
+                        this.showToast(data.message || '批量重试失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async pauseTask(taskId) {
+                try {
+                    const res = await fetch('/pause_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('任务已暂停', 'info');
+                    } else {
+                        this.showToast(data.message || '暂停失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async resumeTask(taskId) {
+                try {
+                    const res = await fetch('/resume_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('任务已继续', 'success');
+                    } else {
+                        this.showToast(data.message || '继续失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async deleteTask(taskId) {
+                try {
+                    const res = await fetch('/delete_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('任务已删除', 'success');
+                        this.fetchActive(); this.fetchCompleted();
+                    } else {
+                        this.showToast(data.message || '删除失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            async retryTask(taskId) {
+                try {
+                    const res = await fetch('/retry_task?task_id=' + encodeURIComponent(taskId), { method: 'POST' });
+                    const data = await res.json();
+                    if (data.code === '1') {
+                        this.showToast('已加入重试队列', 'success');
+                        this.fetchActive(); this.fetchCompleted();
+                        this.fetchPending(); this.fetchFailed();
+                    } else {
+                        this.showToast(data.message || '重试失败', 'error');
+                    }
+                } catch(e) {
+                    this.showToast('网络错误', 'error');
+                }
+            },
+
+            showToast(message, type = 'success') {
+                this.toast = { show: true, message, type };
+                setTimeout(() => {
+                    this.toast.show = false;
+                }, 2500);
             }
         }
-        </script>
+    }
+    </script>
 
 </body>
 </html>
