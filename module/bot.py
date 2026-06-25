@@ -1843,12 +1843,12 @@ async def _consume_pending_tasks():
     """Periodically consume pending download tasks from bot_tasks.json.
     Runs every 5 seconds.
     """
-    from module.task_store import get_pending_tasks, update_download_state, remove_task
-    from media_downloader import add_download_task
     import logging
     logger = logging.getLogger("bot.pending")
     while _bot.is_running:
         try:
+            from module.task_store import get_pending_tasks, update_download_state, remove_task
+            from media_downloader import add_download_task
             pending = get_pending_tasks()
             for task_data in pending:
                 task_id = task_data.get("task_id")
