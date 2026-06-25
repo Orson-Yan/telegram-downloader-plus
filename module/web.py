@@ -430,9 +430,10 @@ def web_batch_retry():
 def web_get_pending_list():
     """Get list of pending tasks (received but not started downloading)"""
     import time as _time
-    pending = get_pending_tasks()
+    # Return all running tasks (pending + downloading) so WebUI shows them
+    all_running = [t for t in get_pending_tasks() if t.get("status") == "running"]
     result = []
-    for task in pending:
+    for task in all_running:
         task_id = task.get("task_id", "")
         created_at = task.get("created_at", 0)
         created_at_str = ""

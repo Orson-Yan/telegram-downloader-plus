@@ -415,8 +415,7 @@
         </div>
 
         <!-- Completed Downloads Tab -->
-        <div x-show="activeTab === 'completed'" x-transition:enter="fade-in"
-     @scroll.window.passive="checkCompletedScroll()">
+        <div x-show="activeTab === 'completed'" x-transition:enter="fade-in">
             <!-- Select All Bar -->
             <div x-show="completedTasks.length > 0" class="mb-3 flex items-center justify-between">
                 <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-500 hover:text-gray-700">
@@ -425,7 +424,7 @@
                         @change="toggleSelectAll('completed')">
                     全选
                 </label>
-                <span class="text-xs text-gray-400" x-text="completedTasks.length + ' / ' + completedTotal + ' 个任务'"></span>
+                <span class="text-xs text-gray-400" x-text="completedTasks.length + ' / ' + tabPage.completed.total + ' 个任务'"></span>
             </div>
 
             <!-- Empty State -->
@@ -681,7 +680,15 @@
                     this.pendingPollTimer = setInterval(() => {
                         this.fetchPending();
                     }, 5000);
-                    this.paginatedPollTimer = setInterval(() => {
+                    // Unified window scroll handler for all tabs
+                window.addEventListener('scroll', () => {
+                    const active = this.activeTab;
+                    if (['completed', 'pending', 'failed'].includes(active)) {
+                        this.checkScroll(active);
+                    }
+                }, { passive: true });
+
+                this.paginatedPollTimer = setInterval(() => {
                         this.fetchTab('pending');
                         this.fetchTab('completed');
                         this.fetchTab('failed');
