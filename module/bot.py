@@ -98,10 +98,9 @@ def _cleanup_stopped_task(node):
                             from_user_id=getattr(node, "from_user_id", "") or "",
                     )
                     recorded += 1
-                # Delete the download progress entry (both incomplete and complete)
-                # to remove it from active/completed list in webui
-                _delete_download_progress(f"{chat_id}_{msg_id}")
-                removed += 1
+                    # Delete only incomplete entries from download result
+                    _delete_download_progress(f"{chat_id}_{msg_id}")
+                    removed += 1
         if removed > 0:
             logger.info(f"Cleaned up {removed} download entries for stopped task {task_id_display}")
         else:
@@ -254,7 +253,6 @@ class DownloadBot:
                     from module.task_store import complete_task
                     complete_task(value.task_id)
                     self.remove_task_node(key)
-                    # Task finished -> consume next pending task
                     from module.task_store import get_pending_tasks
                     if get_pending_tasks():
                         _bot.app.loop.create_task(_consume_one_pending())
@@ -288,9 +286,9 @@ class DownloadBot:
             for task_data in downloading_tasks:
                 await self._recover_single_task(task_data)
 
-            # Phase 2: Pending tasks stay pending for event-driven consumption
+            # Phase 2: Pending tasks stay pending
             if pending_tasks:
-                logger.info(f"Skipping {len(pending_tasks)} pending tasks during recovery -- will consume one by one")
+                logger.info(f"Skipping {len(pending_tasks)} pending tasks during recovery")
                 self.app.loop.create_task(_consume_one_pending())
 
         except Exception as e:
@@ -1846,7 +1844,7 @@ async def start_message_monitor():
         await asyncio.sleep(60)  # 每60秒检查一次
 async def _consume_one_pending():
     """Consume exactly one pending task from bot_tasks.json.
-    Called when a downloading task completes. Single-shot, no loop.
+    Single-shot, no loop.
     """
     import logging
     logger = logging.getLogger("bot.pending")
