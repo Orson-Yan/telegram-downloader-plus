@@ -690,10 +690,11 @@
             },
 
             async fetchCompleted() {
-                try {
-                    const res = await fetch('/get_download_list?already_down=true');
-                    const data = await res.json();
-                    const newCompleted = data.filter(t => t.download_progress_raw >= 100);
+                            try {
+                                const res = await fetch('/get_download_list?already_down=true');
+                                const data = await res.json();
+                                const tasks = data.tasks || data;
+                                const newCompleted = tasks.filter(t => t.download_progress_raw >= 100);
                     // Only update if data actually changed (avoid unnecessary re-render)
                     if (JSON.stringify(newCompleted) !== JSON.stringify(this.completedTasks)) {
                         this.completedTasks = newCompleted;
