@@ -41,8 +41,11 @@
 </head>
 <body class="bg-gray-50 min-h-screen" x-data="app()" x-init="init()" x-cloak>
 
+    <!-- Sticky Header + Tabs Container -->
+    <div class="sticky top-0 z-30">
+
     <!-- Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+    <header class="bg-white border-b border-gray-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
             <div class="flex items-center justify-between">
                 <!-- Logo & Title -->
@@ -89,7 +92,7 @@
     </header>
 
     <!-- Tab Navigation -->
-    <div class="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
+    <div class="bg-white border-b border-gray-100 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6">
             <nav class="flex gap-0" role="tablist">
                 <button
@@ -173,6 +176,9 @@
                 </button>
             </div>
         </div>
+    </div>
+
+    <!-- End Sticky Header + Tabs Container -->
     </div>
 
     <!-- Main Content -->
