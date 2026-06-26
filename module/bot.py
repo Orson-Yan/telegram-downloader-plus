@@ -1883,7 +1883,8 @@ async def _consume_one_pending():
             cid = chat_id
         try:
             msg = await client.get_messages(cid, int(msg_id))
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Pending consumer: get_messages failed for chat {cid} msg {msg_id}: {e}")
             return
         if not msg or msg.empty:
             logger.warning(f"Pending consumer: msg {msg_id} not found in chat {cid}, removing")
