@@ -249,6 +249,7 @@ async def add_download_task(message: pyrogram.types.Message, node: TaskNode):
     node.download_status[message.id] = DownloadStatus.Downloading
     await queue.put((message, node))
     node.total_task += 1
+    logger.info(f"add_download_task: put msg {message.id} into queue (size now {queue.qsize()}), task {getattr(node, 'task_id_display', node.task_id)}")
     return True
 
 
