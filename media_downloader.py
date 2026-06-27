@@ -590,6 +590,7 @@ async def worker(client: pyrogram.client.Client):
     """Work for download task"""
     while app.is_running:
         try:
+            logger.info(f"Worker waiting for queue item...")
             item = await queue.get()
             message = item[0]
             node: TaskNode = item[1]
