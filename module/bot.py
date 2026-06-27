@@ -1873,12 +1873,11 @@ async def _consume_one_pending():
         pending = get_pending_tasks()
         if not pending:
             return
-        # Concurrency guard: allow up to 3 concurrent consuming tasks
-        max_tasks = getattr(_bot.app, 'max_download_task', 5)
-        active = len(get_downloading_tasks())
-        if active >= 3:  # cap at 3 concurrent consuming to speed up queue
-            logger.debug(f"Pending consumer: {active} downloading (cap 3), waiting")
-            return
+        # No concurrency guard here — the worker pool (max_download_task workers)
+        # already limits parallel downloads. Adding a guard here causes deadlock:
+        # if 3 workers are stuck on a slow/blocked chat, the consumer stops
+        # feeding the remaining 2 workers, and no tasks ever complete to
+        # unblock the guard.
         task_data = pending[0]
         task_id = task_data.get("task_id")
         if not task_id:
