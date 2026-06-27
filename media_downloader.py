@@ -238,13 +238,15 @@ async def _get_media_meta(
         file_save_path = app.get_file_save_path(_type, dirname, datetime_dir_name)
         temp_file_name = os.path.join(app.temp_save_path, dirname, gen_file_name)
         file_name = os.path.join(file_save_path, gen_file_name)
-
     return truncate_filename(file_name), truncate_filename(temp_file_name), file_format
 
 
 async def add_download_task(message: pyrogram.types.Message, node: TaskNode):
     """Add Download task"""
     if message.empty:
+        return False
+    if queue is None:
+        logger.error(f"add_download_task: queue is None! msg {message.id} cannot be queued")
         return False
     node.download_status[message.id] = DownloadStatus.Downloading
     await queue.put((message, node))
