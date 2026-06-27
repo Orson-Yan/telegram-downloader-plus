@@ -1904,10 +1904,11 @@ async def _consume_one_pending():
             )
             _bot.add_task_node(node)
         update_download_state(task_id, "downloading")
-        await add_download_task(msg, node)
         node.is_running = True
 
-        # Notify user that pending task started downloading
+        # Send notification BEFORE add_download_task to avoid race condition:
+        # if we queue first, worker may finish a small file before send_message
+        # returns, causing reply_message_id=0 and missing final status notification
         if from_user_id and _bot and _bot.bot:
             try:
                 chat_name = getattr(msg.chat, "title", str(cid))
@@ -1917,9 +1918,14 @@ async def _consume_one_pending():
                     f"任务: {node.task_id_display}\n"
                     f"群组: {chat_name}"
                 )
-                await _bot.bot.send_message(int(from_user_id), notify_text)
+                recovery_msg = await _bot.bot.send_message(int(from_user_id), notify_text)
+                node.reply_message_id = recovery_msg.id
+                node.last_edit_msg = ""       # Force first progress update to trigger
+                node.last_progress_pct = -1   # Force first 20% bucket to trigger
             except Exception as e:
                 logger.warning(f"Pending consumer notification failed: {e}")
+
+        await add_download_task(msg, node)
     except Exception as e:
         logger.warning(f"Pending consumer error: {e}")
 
