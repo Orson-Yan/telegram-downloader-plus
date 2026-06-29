@@ -1305,6 +1305,7 @@ async def direct_download(
     )
 
     node.is_running = True
+    update_download_state(node.task_id, "downloading")
 
 
 async def download_forward_media(
