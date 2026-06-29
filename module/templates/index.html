@@ -1009,7 +1009,7 @@
                         this.showToast(data.message || '移除失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1076,7 +1076,7 @@
                         this.showToast(data.message || '删除失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1098,7 +1098,7 @@
                         this.showToast(data.message || '批量重试失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1112,7 +1112,7 @@
                         this.showToast(data.message || '暂停失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1126,7 +1126,7 @@
                         this.showToast(data.message || '继续失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1154,8 +1154,16 @@
                         this.deleteModal.filename = data.filename || '';
                         this.deleteModal.filePath = data.path || '';
                         this.deleteModal.deleteFile = data.exists;
+                    } else {
+                        this.deleteModal.deleteFile = false;
                     }
-                } catch(e) {}
+                } catch(e) {
+                    // check_file_exists failed (e.g. network error or 500) —
+                    // fall back to "file unknown" state so user can still confirm
+                    console.error('check_file_exists failed:', e);
+                    this.deleteModal.fileExists = false;
+                    this.deleteModal.deleteFile = false;
+                }
                 this.deleteModal.loading = false;
             },
 
@@ -1221,12 +1229,12 @@
                             this.showToast(data.message || '删除失败', 'error');
                         }
                     } catch(e) {
-                        this.showToast('网络错误', 'error');
+                        this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                     }
                 } else {
                     // Single task delete
                     try {
-                        const url = '/delete_task?task_id=' + encodeURIComponent(dm.taskIds[0]);
+                        let url = '/delete_task?task_id=' + encodeURIComponent(dm.taskIds[0]);
                         if (dm.deleteFile) url += '&delete_file=true';
                         const res = await fetch(url, { method: 'POST' });
                         const data = await res.json();
@@ -1243,7 +1251,7 @@
                             this.showToast(data.message || '删除失败', 'error');
                         }
                     } catch(e) {
-                        this.showToast('网络错误', 'error');
+                        this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                     }
                 }
                 dm.show = false;
@@ -1266,7 +1274,7 @@
                         this.showToast(data.message || '删除失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
@@ -1282,7 +1290,7 @@
                         this.showToast(data.message || '重试失败', 'error');
                     }
                 } catch(e) {
-                    this.showToast('网络错误', 'error');
+                    this.showToast('网络错误: ' + (e && e.message ? e.message : '未知错误'), 'error');
                 }
             },
 
