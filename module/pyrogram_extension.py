@@ -1245,13 +1245,29 @@ async def _report_bot_status(
             f"🆔 task: {node.task_id_display}\n"
         )
         if immediate_reply:
-            new_msg_str += (
-                f"📥 {_t('Downloading')}\n"
-                f"├─ 📁 {_t('Total')}: {display_total}\n"
-                f"├─ ✅ {_t('Success')}: {display_success}\n"
-                f"├─ ❌ {_t('Failed')}: {display_failed}\n"
-                f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
-            )
+            # Single-file tasks (limit==1): show simple status without 总数/Files
+            # Batch tasks (limit>1 or 0): show full download stats block
+            is_single = (node.limit == 1 and not node.upload_telegram_chat_id)
+            if is_single and display_failed == 0 and display_skipped == 0:
+                # Single success
+                new_msg_str += f"✅ {_t('Success')}: {display_success}\n"
+            elif is_single and display_failed > 0 and display_success == 0:
+                # Single failure
+                new_msg_str += f"❌ {_t('Failed')}: {display_failed}\n"
+            elif is_single and display_skipped > 0 and display_failed == 0:
+                # Single skip
+                new_msg_str += f"⏩ {_t('Skipped')}: {display_skipped}\n"
+            else:
+                # Batch or mixed — show full stats
+                new_msg_str += (
+                    f"📥 {_t('Downloading')}\n"
+                    f"├─ 📁 {_t('Total')}: {display_total}\n"
+                    f"├─ ✅ {_t('Success')}: {display_success}\n"
+                    f"├─ ❌ {_t('Failed')}: {display_failed}\n"
+                    f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
+                )
+                # Don't show completed files list for batch — stats are enough
+                completed_files_str = ""
         new_msg_str += (
             f"{node.forward_msg_detail_str}"
             f"{upload_msg_detail_str}"
