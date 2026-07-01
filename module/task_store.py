@@ -152,11 +152,14 @@ def get_running_tasks() -> list:
 
 
 def get_pending_tasks() -> list:
-    """Get all tasks with download_state='pending' or 'queued' (created but not started downloading)."""
+    """Get all tasks with download_state='pending' (not yet consumed by pending consumer).
+    
+    'queued' means already in asyncio Queue — do NOT re-consume.
+    """
     with _lock:
         tasks = _load_all()
         return [t for t in tasks if t.get("status") == "running"
-                and t.get("download_state", "pending") in ("pending", "queued")]
+                and t.get("download_state", "pending") == "pending"]
 
 
 def get_downloading_tasks() -> list:
