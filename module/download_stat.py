@@ -177,11 +177,6 @@ def get_chat_title(chat_id) -> str:
     return _chat_titles.get(str(chat_id), str(chat_id))
 
 
-def get_all_chat_titles() -> dict:
-    """Get all cached chat titles"""
-    return _chat_titles.copy()
-
-
 def remove_failed_download(task_id) -> bool:
     """Remove a failed download entry by task_id"""
     global _failed_downloads
@@ -218,17 +213,6 @@ def batch_delete_failed(task_ids: list) -> int:
     if deleted > 0:
         save_downloads()
     return deleted
-
-
-def clear_completed_downloads():
-    """Clear completed downloads from result (keep only active)"""
-    with _sync_lock:
-        for chat_id, messages in list(_download_result.items()):
-            for msg_id, value in list(messages.items()):
-                if value["down_byte"] == value["total_size"]:
-                    del _download_result[chat_id][msg_id]
-            if not _download_result[chat_id]:
-                del _download_result[chat_id]
 
 
 def _reset_task_speed(task_id):

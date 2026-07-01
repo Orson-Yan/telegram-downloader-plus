@@ -1028,21 +1028,6 @@ class Application:
         else:
             self.caption_entities_dict[chat_id] = {media_group_id: caption_entities}
 
-    def get_caption_entities(
-        self, chat_id: Union[int, str], media_group_id: Optional[str]
-    ):
-        """
-        get caption entities map
-        """
-        if (
-            not media_group_id
-            or chat_id not in self.caption_entities_dict
-            or media_group_id not in self.caption_entities_dict[chat_id]
-        ):
-            return None
-
-        return self.caption_entities_dict[chat_id][media_group_id]
-
     def set_download_id(
         self, node: TaskNode, message_id: int, download_status: DownloadStatus
     ):

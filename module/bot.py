@@ -1870,70 +1870,7 @@ async def forward_msg(node: TaskNode, message_id: int):
     await _bot.download_chat_task(_bot.client, chat_download_config, node)
 
 
-async def check_new_messages(
-    client: pyrogram.Client, chat_id: int, node: TaskNode, last_message_id: int = 0
-):
-    """
-    Checks for new messages in the chat and forwards them.
-
-    Parameters:
-        client (pyrogram.Client): The pyrogram client
-        chat_id (int): The chat ID to monitor
-        node (TaskNode): The task node containing forwarding configuration
-        last_message_id (int): The ID of the last processed message
-    """
-    try:
-        # Only get the most recent message if last_message_id is 0
-        if last_message_id == 0:
-            async for message in get_chat_history_v2(  # type: ignore
-                client, chat_id, limit=1  # Get only the latest message
-            ):
-                last_message_id = message.id
-                return last_message_id
-
-        # Otherwise check for new messages after last_message_id
-        async for message in get_chat_history_v2(  # type: ignore
-            client, chat_id, limit=100, offset_id=last_message_id, reverse=True
-        ):
-            if message.id > last_message_id:
-                if not node.has_protected_content:
-                    await forward_normal_content(client, node, message)
-                    await report_bot_status(client, node, immediate_reply=True)
-                else:
-                    await _bot.add_download_task(message, node)
-                last_message_id = message.id
-    except Exception as e:
-        logger.exception(f"Error checking new messages in chat {chat_id}: {e}")
-
-    return last_message_id
-
-
-async def start_message_monitor():
-    """
-    Starts monitoring all chats that need to be forwarded.
-    Runs every 60 seconds to check for new messages.
-    """
-    last_message_ids = {}  # 存储每个聊天的最后处理的消息ID
-
-    while _bot.is_running:
-        try:
-            for chat_id, node in _bot.listen_forward_chat.items():
-                if not node.is_running:
-                    continue
-
-                last_id = last_message_ids.get(chat_id, 0)
-                new_last_id = await check_new_messages(
-                    _bot.client, chat_id, node, last_id
-                )
-                last_message_ids[chat_id] = new_last_id
-
-        except Exception as e:
-            logger.exception(f"Error in message monitor: {e}")
-
-        await asyncio.sleep(60)  # 每60秒检查一次
-
 # Global flood wait cooldown is now unified in pyrogram_extension._unified_flood_wait
-# All handlers (edit_message, download_media, get_messages) share it via is_flood_wait_active()
 
 async def _consume_one_pending():
     """Consume exactly one pending task from bot_tasks.json.

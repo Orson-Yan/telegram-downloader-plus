@@ -44,7 +44,6 @@
 - **Protected channels** — auto-switch to download-then-upload mode
 - **Comments forward** — `/forward_to_comments` forwards media to a post's comment section
 - **Listen forward** — `/listen_forward` uses NewMessage event-driven, triggers download/forward immediately on new channel messages (not polling)
-- **Ad filtering** — keyword-based ad filter and replacement
 
 ### Task Management
 
@@ -343,7 +342,9 @@ proxy:
 | `/get_download_status` | GET | Total download speed |
 | `/get_download_state` | GET | Global state (downloading / paused) |
 | `/get_completed_count` | GET | Completed count (lightweight polling) |
+| `/get_flood_wait` | GET | FloodWait cooldown status + remaining seconds |
 | `/get_app_version` | GET | App version |
+| `/check_file_exists` | POST | Check if local file exists for a completed task |
 | `/set_download_state` | POST | Global pause/resume (`state=pause` / `state=continue`) |
 | `/pause_task` | POST | Pause a task |
 | `/resume_task` | POST | Resume a task |
@@ -422,7 +423,7 @@ Based on [tangyoha/telegram_media_downloader](https://github.com/tangyoha/telegr
 | **Queue init** | Module import time | After event loop starts, avoids loop mismatch |
 | **Logging** | Single file | `tdl.log` + `download.log`, 10MB rotation, 30-day retention |
 | **Bot notifications** | Simple status | Progress + completed file list + failure reasons + rate limit + recovery |
-| **Docker** | Single stage | Multi-stage build (alpine), rclone built-in, module hot-mount |
+| **Docker** | Single stage | Multi-stage build (alpine), rclone built-in |
 | **Version** | v2.2.6 | v1.0.0 (independent line) |
 
 ---

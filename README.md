@@ -43,7 +43,6 @@
 - **受保护频道** — 自动切换为下载再上传模式
 - **评论区转发** — `/forward_to_comments` 转发媒体到指定帖子评论区
 - **实时监听转发** — `/listen_forward` 基于 NewMessage 事件驱动，频道有新消息立即触发下载/转发（非轮询）
-- **广告过滤** — 支持广告关键词过滤和替换
 
 ### 任务管理
 
@@ -343,7 +342,9 @@ proxy:
 | `/get_download_status` | GET | 总下载速度 |
 | `/get_download_state` | GET | 全局下载状态（downloading / paused） |
 | `/get_completed_count` | GET | 已完成数量（轻量轮询） |
+| `/get_flood_wait` | GET | FloodWait 冷却状态 + 剩余秒数 |
 | `/get_app_version` | GET | 应用版本 |
+| `/check_file_exists` | POST | 检查已完成任务的本地文件是否存在 |
 | `/set_download_state` | POST | 全局暂停/恢复（`state=pause` / `state=continue`） |
 | `/pause_task` | POST | 暂停单个任务 |
 | `/resume_task` | POST | 恢复单个任务 |
@@ -422,7 +423,7 @@ git pull && docker-compose build && docker-compose up -d
 | **Queue 初始化** | 模块导入时 | 事件循环启动后，避免 loop 不匹配 |
 | **日志** | 单文件 | `tdl.log` + `download.log`，10MB 轮转，30 天保留 |
 | **Bot 通知** | 简单状态 | 下载进度 + 完成文件列表 + 失败原因 + 限速暂停 + 恢复通知 |
-| **Docker** | 单阶段 | 多阶段构建（alpine），rclone 内置，模块热挂载 |
+| **Docker** | 单阶段 | 多阶段构建（alpine），rclone 内置 |
 | **版本号** | v2.2.6 | v1.0.0（独立版本线） |
 
 ---

@@ -53,22 +53,12 @@ _mimetypes.readfp(StringIO(mime_types))
 _download_cache = Cache(1024 * 1024 * 1024)
 
 
-def reset_download_cache():
-    """Reset download cache"""
-    _download_cache.store.clear()
-
-
 def remove_download_cache(chat_id, message_id):
     """Remove a specific entry from download cache."""
     try:
         _download_cache.store.pop((chat_id, message_id), None)
     except Exception as e:
         logger.warning(f"Failed to remove download cache ({chat_id}, {message_id}): {e}")
-
-
-def _guess_mime_type(filename: str) -> Optional[str]:
-    """Guess mime type"""
-    return _mimetypes.guess_type(filename)[0]
 
 
 def _guess_extension(mime_type: str) -> Optional[str]:

@@ -9,11 +9,11 @@ services:
       - "5000:5000"
     environment:
       - TZ=Asia/Shanghai
-      - http_proxy=socks5://172.17.0.1:20170
-      - https_proxy=socks5://172.17.0.1:20170
+      - http_proxy=socks5://172.17.0.1:1080
+      - https_proxy=socks5://172.17.0.1:1080
     volumes:
       # 下载目录 (修改为你的实际路径)
-      - "/volume4/资料-10t:/app/downloads/"
+      - "./downloads:/app/downloads/"
       # 配置文件
       - "./config.yaml:/app/config.yaml"
       - "./data.yaml:/app/data.yaml"
