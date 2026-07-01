@@ -545,22 +545,54 @@ class DownloadBot:
 
         async def _on_new_message(client, message):
             chat_id = message.chat.id
-            if chat_id not in self.listen_forward_chat:
-                return
-            node = self.listen_forward_chat[chat_id]
-            if not node.is_running:
-                return
             if not message.media:
                 return
-            try:
-                if not node.has_protected_content:
-                    await forward_normal_content(client, node, message)
-                    from module.pyrogram_extension import report_bot_status
-                    await report_bot_status(client, node, immediate_reply=True)
-                else:
+            
+            # 检查是否是 listen_forward_chat 中的频道
+            if chat_id in self.listen_forward_chat:
+                node = self.listen_forward_chat[chat_id]
+                if not node.is_running:
+                    return
+                try:
+                    if not node.has_protected_content:
+                        await forward_normal_content(client, node, message)
+                        from module.pyrogram_extension import report_bot_status
+                        await report_bot_status(client, node, immediate_reply=True)
+                    else:
+                        await self.add_download_task(message, node)
+                except Exception as e:
+                    logger.exception(f"Listen handler error for chat {chat_id}: {e}")
+                return
+            
+            # 检查是否是 config.yaml 中配置的 chat
+            if self.app and chat_id in self.app.chat_download_config:
+                chat_config = self.app.chat_download_config[chat_id]
+                # 只处理比 last_read_message_id 新的消息
+                if message.id <= chat_config.last_read_message_id:
+                    return
+                
+                # 创建临时 TaskNode 下载这条消息
+                try:
+                    from module.app import TaskNode
+                    node = TaskNode(
+                        chat_id=chat_id,
+                        from_user_id=0,
+                        limit=1,
+                        bot=self.bot,
+                        download_filter=chat_config.download_filter,
+                    )
+                    node.task_id_display = f"config-{chat_id}-{message.id}"
+                    
+                    # 更新 last_read_message_id
+                    chat_config.last_read_message_id = message.id
+                    self.app.update_config(immediate=True)
+                    
+                    # 加入下载队列
                     await self.add_download_task(message, node)
-            except Exception as e:
-                logger.exception(f"Listen handler error for chat {chat_id}: {e}")
+                    logger.info(f"Config chat {chat_id}: new message {message.id} queued for download")
+                except Exception as e:
+                    logger.exception(f"Config chat handler error for chat {chat_id}: {e}")
+                return
 
         handler = MessageHandler(
             _on_new_message,
@@ -1949,6 +1981,14 @@ async def _consume_one_pending():
         extra = task_data.get("extra_data", {}) or {}
         msg_id = extra.get("message_id") or extra.get("source_message_id")
         from_user_id = task_data.get("from_user_id", "")
+        task_type = task_data.get("task_type", "")
+        
+        # Config tasks are handled by download_all_chat, skip them
+        if task_type == "config":
+            remove_task(task_id)
+            logger.info(f"Skipped config task {task_id} (handled by download_all_chat)")
+            return
+        
         if not chat_id or not msg_id:
             return
         client = _bot.client
