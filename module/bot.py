@@ -827,6 +827,11 @@ class DownloadBot:
             )
         )
 
+        # 自动注册频道监听 handler（支持 config.yaml 中的 chat）
+        if self.app.chat_download_config:
+            self._register_listen_handler()
+            logger.info("Auto-registered listen handler for config chats")
+
 
 _bot = DownloadBot()
 
