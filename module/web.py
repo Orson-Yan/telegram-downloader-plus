@@ -756,7 +756,7 @@ async def _async_retry_download(chat_id, msg_id, from_user_id="", placeholder_ta
             reply_message_id=0,
             replay_message="WebUI retry",
             limit=1,
-            bot=None,
+            bot=_bot.bot,
             task_id=_bot.gen_task_id(),
         )
         _bot.add_task_node(node)
@@ -780,7 +780,7 @@ async def _async_retry_download(chat_id, msg_id, from_user_id="", placeholder_ta
         _bot._cached_messages[node.task_id] = msg
         node.is_running = True
 
-        # Send retry notification to user via bot
+        # Send retry notification to user via bot and record message ID for later editing
         if from_user_id and _bot and _bot.bot:
             try:
                 chat_name = getattr(msg.chat, "title", str(cid))
@@ -788,7 +788,9 @@ async def _async_retry_download(chat_id, msg_id, from_user_id="", placeholder_ta
                 msg_text += f"消息: {msg_id}\n"
                 msg_text += f"任务: {node.task_id_display}\n"
                 msg_text += f"群组: {chat_name}"
-                await _bot.bot.send_message(int(from_user_id), msg_text)
+                sent_msg = await _bot.bot.send_message(int(from_user_id), msg_text)
+                # 记录消息ID，让 report_bot_status 能编辑这条消息更新进度
+                node.reply_message_id = sent_msg.id
             except Exception as e:
                 logger.warning(f"Retry notification failed for user {from_user_id}: {e}")
 

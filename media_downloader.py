@@ -595,7 +595,24 @@ async def download_media(
             )
             error_message = f"下载异常: {error_str[:100]}"
             break
+    # 修复：失败前检查文件是否已落盘
+    # 场景1: pyrogram 已将文件写入 temp 但在返回前抛了异常
+    if temp_file_name and os.path.exists(temp_file_name):
+        temp_size = os.path.getsize(temp_file_name)
+        if media_size > 0 and temp_size >= media_size:
+            try:
+                _move_to_download_path(temp_file_name, file_name)
+                logger.info(f"Message[{message.id}] {ui_file_name}: 下载实际已完成(temp {temp_size}字节)")
+                return DownloadStatus.SkipDownload, file_name, ""
+            except Exception as e:
+                logger.warning(f"Message[{message.id}]: 移动已完成文件失败: {e}")
     _cleanup_temp_file(temp_file_name)
+    # 场景2: 目标文件已存在（可能被并发任务或之前的成功下载写入）
+    if file_name and _is_exist(file_name):
+        file_size = os.path.getsize(file_name)
+        if media_size > 0 and file_size >= media_size:
+            logger.info(f"Message[{message.id}] {ui_file_name}: 文件已存在({file_size}字节)，标记为跳过")
+            return DownloadStatus.SkipDownload, None, ""
     # Log the specific failure reason before returning
     final_reason = error_message or "下载失败（未知原因）"
     logger.warning(f"Message[{message.id}] {ui_file_name}: download failed after 3 retries, reason: {final_reason}")
