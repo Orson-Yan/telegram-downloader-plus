@@ -44,7 +44,7 @@
 - **Protected channels** — auto-switch to download-then-upload mode
 - **Comments forward** — `/forward_to_comments` forwards media to a post's comment section
 - **Listen forward** — `/listen_forward` uses NewMessage event-driven, triggers download/forward immediately on new channel messages (not polling)
-- **Config.yaml monitoring** — chats in config file also auto-monitor new messages, real-time updates after startup (requires `no_updates: false`)
+- **Config.yaml monitoring** — chats in config file also auto-monitor new messages, real-time updates after startup
 
 ### Ad Filtering
 
