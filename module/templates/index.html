@@ -1156,7 +1156,6 @@
                         this.fetchActive().catch(() => {});
                         this.fetchCompleted().catch(() => {});
                         this.fetchPending().catch(() => {});
-                        this.fetchFailed().catch(() => {});
                     } else {
                         this.showToast(data.message || '批量重试失败', 'error');
                     }
@@ -1354,7 +1353,6 @@
                         this.fetchActive().catch(() => {});
                         this.fetchCompleted().catch(() => {});
                         this.fetchPending().catch(() => {});
-                        this.fetchFailed().catch(() => {});
                     } else {
                         this.showToast(data.message || '重试失败', 'error');
                     }
