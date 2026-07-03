@@ -350,10 +350,6 @@ class Filter:
         self.filter.reset()
         self.filter.names = meta_data.data()
 
-    def set_debug(self, debug: bool):
-        """Set Filter Debug Model"""
-        self.filter.debug = debug
-
     def exec(self, filter_str: str) -> bool:
         """Exec filter str"""
 
