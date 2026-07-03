@@ -1235,16 +1235,26 @@ async def _report_bot_status(
             f"🆔 task: {node.task_id_display}\n"
         )
         if immediate_reply:
-            # Single-file tasks (limit==1): hide 总数 line (always 1, redundant)
+            # Single-file tasks (limit==1): show only the actual result
             # Batch tasks: show full stats including 总数
             is_single = (node.limit == 1 and not node.upload_telegram_chat_id)
             if is_single:
-                new_msg_str += (
-                    f"📥 {_t('Downloading')}\n"
-                    f"├─ ✅ {_t('Success')}: {display_success}\n"
-                    f"├─ ❌ {_t('Failed')}: {display_failed}\n"
-                    f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
-                )
+                # For single tasks, show only the dominant result
+                if display_failed > 0:
+                    new_msg_str += (
+                        f"📥 {_t('Downloading')}\n"
+                        f"└─ ❌ {_t('Failed')}: {display_failed}\n"
+                    )
+                elif display_skipped > 0:
+                    new_msg_str += (
+                        f"📥 {_t('Downloading')}\n"
+                        f"└─ ⏩ {_t('Skipped')}: {display_skipped}\n"
+                    )
+                elif display_success > 0:
+                    new_msg_str += (
+                        f"📥 {_t('Downloading')}\n"
+                        f"└─ ✅ {_t('Success')}: {display_success}\n"
+                    )
             else:
                 new_msg_str += (
                     f"📥 {_t('Downloading')}\n"
