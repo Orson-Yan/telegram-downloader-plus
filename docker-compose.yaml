@@ -9,8 +9,8 @@ services:
       - "5000:5000"
     environment:
       - TZ=Asia/Shanghai
-      - http_proxy=socks5://172.17.0.1:1080
-      - https_proxy=socks5://172.17.0.1:1080
+      - http_proxy=socks5://127.0.0.1:7890
+      - https_proxy=socks5://127.0.0.1:7890
     volumes:
       # 下载目录 (修改为你的实际路径)
       - "./downloads:/app/downloads/"
