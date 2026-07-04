@@ -292,6 +292,17 @@ class DownloadBot:
 
             logger.info(f"Found {len(all_tasks)} tasks, all queued as pending (will consume one by one)")
 
+            # Seed the in-memory task_id counter past all recovered ids, so newly
+            # created tasks after a restart don't collide with recovered ones.
+            # gen_task_id() resets to 0 each process start; without this a new task
+            # can reuse a recovered task's id and save_task() would silently drop the
+            # recovered task's persistence entry (task_store dedups by task_id).
+            recovered_ids = [t.get("task_id") for t in all_tasks
+                             if isinstance(t.get("task_id"), int)]
+            if recovered_ids:
+                self.task_id = max(self.task_id, max(recovered_ids))
+                logger.info(f"Seeded task_id counter to {self.task_id} (past recovered ids)")
+
             # Start periodic pending consumer loop (60s interval)
             if not hasattr(self, "_pending_loop_started") or not self._pending_loop_started:
                 self.app.loop.create_task(_pending_consumer_loop())
@@ -1932,6 +1943,12 @@ async def _consume_one_pending():
         except (ValueError, TypeError):
             cid = chat_id
 
+        # Reserve this task in-queue BEFORE the get_messages await, so a concurrent
+        # _consume_one_pending() invocation (fired from worker completion / startup)
+        # can't re-select the same still-pending task during the await window and
+        # double-queue it. Every failure return below must discard() to release it.
+        _bot._in_queue.add(task_id)
+
         # Use cached message from direct_download if available (skip get_messages)
         cached_msg = _bot._cached_messages.pop(task_id, None)
         if cached_msg:
@@ -1942,6 +1959,7 @@ async def _consume_one_pending():
             except asyncio.TimeoutError:
                 # TG 静默限速：get_messages 300s 超时
                 # 不标失败，保持 pending，设 cooldown 让所有组件暂停
+                _bot._in_queue.discard(task_id)
                 backoff = 60
                 from module.pyrogram_extension import _unified_flood_wait
                 _unified_flood_wait["until"] = time.time() + backoff + 5
@@ -1964,6 +1982,7 @@ async def _consume_one_pending():
                 return
             except pyrogram.errors.exceptions.flood_420.FloodWait as e:
                 # Don't move to failed list — keep pending, set unified cooldown
+                _bot._in_queue.discard(task_id)
                 wait_val = getattr(e, "value", 60)
                 from module.pyrogram_extension import _unified_flood_wait
                 _unified_flood_wait["until"] = time.time() + wait_val + 5
@@ -1987,6 +2006,7 @@ async def _consume_one_pending():
                 return
             except Exception as e:
                 # 防御性检测：如果异常是 TimeoutError 类型，按限速处理
+                _bot._in_queue.discard(task_id)
                 if isinstance(e, TimeoutError):
                     backoff = 60
                     from module.pyrogram_extension import _unified_flood_wait
@@ -2017,6 +2037,7 @@ async def _consume_one_pending():
                 return
         if not msg or msg.empty:
             logger.warning(f"Pending consumer: msg {msg_id} not found in chat {cid}, removing")
+            _bot._in_queue.discard(task_id)
             remove_task(task_id)
             return
         node = _bot.task_node.get(int(task_id)) if str(task_id).isdigit() else _bot.task_node.get(task_id)
@@ -2038,7 +2059,8 @@ async def _consume_one_pending():
             node.source_message_id = extra.get("source_message_id", 0)
             node.source_chat_title = extra.get("source_chat_title", "")
             _bot.add_task_node(node)
-        # Mark as in-queue (in-memory, not persisted). Worker will remove on pickup.
+        # Already reserved in _in_queue above (before get_messages). Worker discards
+        # on pickup. Keep it here as a no-op-safe re-assert for the cached_msg path.
         _bot._in_queue.add(task_id)
         node.is_running = True
 
